@@ -15,24 +15,18 @@
 .. _CircleCI: https://circleci.com/gh/scikit-learn-contrib/project-template/tree/master
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/sklearn-template/badge/?version=latest
-.. _ReadTheDocs: https://sklearn-template.readthedocs.io/en/latest/?badge=latest
+.. _ReadTheDocs: https://rlassopy.readthedocs.io/en/latest/?badge=latest
 
-project-template - A template for scikit-learn contributions
+
+rlassopy
 ============================================================
 
-.. _scikit-learn: https://scikit-learn.org
+.. _rlassopy: https://rlasso.readthedocs.io/en/latest/
+.. _lassopack: https://statalasso.github.io/docs/lassopack/
+.. _hdm: https://CRAN.R-project.org/package=hdm
+.. _documentation: https://rlasso.readthedocs.io/en/latest/user_guide.html
 
-**project-template** is a template project for scikit-learn_ compatible
-extensions.
+Python implementation of Rigorous Lasso for estimation and inference. Based on the `R` package hdm_ and `stata` package lassopack_.
 
-It aids development of estimators that can be used in scikit-learn pipelines
-and (hyper)parameter search, while facilitating testing (including some API
-compliance), documentation, open source development, packaging, and continuous
-integration.
 
-.. _documentation: https://sklearn-template.readthedocs.io/en/latest/quick_start.html
-
-Refer to the documentation_ to modify the template for your own scikit-learn
-contribution.
-
-*Thank you for cleanly contributing to the scikit-learn ecosystem!*
+Refer to the documentation_ to learn how the package works.
