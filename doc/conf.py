@@ -274,7 +274,7 @@ man_pages = [
         "index",
         "project-template",
         "project-template Documentation",
-        ["Vighnesh Birodkar"],
+        ["Matias Piqueras"],
         1,
     )
 ]
@@ -293,7 +293,7 @@ texinfo_documents = [
         "index",
         "project-template",
         "project-template Documentation",
-        "Vighnesh Birodkar",
+        "Matias Piqueras",
         "project-template",
         "One line description of project.",
         "Miscellaneous",
