@@ -1,8 +1,8 @@
-from ._template import TemplateEstimator
-from ._template import TemplateClassifier
-from ._template import TemplateTransformer
-
 from ._version import __version__
+from .models import Rlasso, SqrtRlasso
 
-__all__ = ['TemplateEstimator', 'TemplateClassifier', 'TemplateTransformer',
-           '__version__']
+__all__ = [
+    "Rlasso",
+    "SqrtRlasso",
+    "__version__",
+]
