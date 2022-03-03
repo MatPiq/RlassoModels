@@ -26,9 +26,9 @@ Python implementation of Rigorous Lasso for estimation and inference. Based on t
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: Tutorial - Examples
+   :caption: References
 
-   auto_examples/index
+   references
 
 `Getting Started <getting_started.html>`_
 -------------------------------------
