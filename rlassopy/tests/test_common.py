@@ -1,11 +1,9 @@
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
-from rlassopy import TemplateClassifier, TemplateEstimator, TemplateTransformer
+from rlassopy import Rlasso, SqrtRlasso
 
 
-@pytest.mark.parametrize(
-    "estimator", [TemplateEstimator(), TemplateTransformer(), TemplateClassifier()]
-)
+@pytest.mark.parametrize("estimator", [Rlasso(), SqrtRlasso()])
 def test_all_estimators(estimator):
     return check_estimator(estimator)
