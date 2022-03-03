@@ -1,3 +1,6 @@
+==================================================
+References
+==================================================
 
 Ahrens, A., Hansen, C. B., & Schaffer, M. (2020). LASSOPACK: Stata module for lasso, square-root lasso, elastic net, ridge, adaptive lasso estimation and cross-validation.
 

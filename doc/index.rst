@@ -45,7 +45,7 @@ How to install the package and get started.
 -------------------------------
 
 
-`API Reference <api.html>`_
+`API Documentation <api.html>`_
 -------------------------------
 
 
