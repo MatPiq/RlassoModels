@@ -3,18 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to sklearn-template's documentation!
+rlassopy
 ============================================
 
-This project is a reference implementation to anyone who wishes to develop
-scikit-learn compatible classes.
+Python implementation of Rigorous Lasso for estimation and inference. Based on the `R` package [`hdm`](https://CRAN.R-project.org/package=hdm) and `stata` package [`lassopack`](https://statalasso.github.io/docs/lassopack/).
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: Getting Started
-
-   quick_start
+   installation
+   example
 
 .. toctree::
    :maxdepth: 2
@@ -31,22 +30,18 @@ scikit-learn compatible classes.
 
    auto_examples/index
 
-`Getting started <quick_start.html>`_
+`Getting Started <getting_started.html>`_
 -------------------------------------
 
-Information regarding this template and how to modify it for your own project.
+How to install the package and get started.
 
 `User Guide <user_guide.html>`_
 -------------------------------
 
-An example of narrative documentation.
 
-`API Documentation <api.html>`_
+`API Reference <api.html>`_
 -------------------------------
 
-An example of API documentation.
 
-`Examples <auto_examples/index.html>`_
+`References <references/index.html>`_
 --------------------------------------
-
-A set of examples. It complements the `User Guide <user_guide.html>`_.
