@@ -6,29 +6,21 @@ This is an example on how to document the API of your own project.
 
 .. currentmodule:: rlassopy
 
-Estimator
+Rlasso
 =========
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   TemplateEstimator
+   Rlasso
 
-Transformer
+SqrtRlasso
 ===========
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
 
-   TemplateTransformer
+   SqrtRlasso
 
-Predictor
-=========
-
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-
-    TemplateClassifier
