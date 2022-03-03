@@ -6,12 +6,18 @@
 rlassopy
 ============================================
 
-Python implementation of Rigorous Lasso for estimation and inference. Based on the `R` package [`hdm`](https://CRAN.R-project.org/package=hdm) and `stata` package [`lassopack`](https://statalasso.github.io/docs/lassopack/).
+.. _rlassopy: https://rlasso.readthedocs.io/en/latest/
+.. _lassopack: https://statalasso.github.io/docs/lassopack/
+.. _hdm: https://CRAN.R-project.org/package=hdm
+.. _documentation: https://rlasso.readthedocs.io/en/latest/user_guide.html
+
+Python implementation of Rigorous Lasso for estimation and inference. Based on the `R` package hdm_ and `stata` package lassopack_.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
    :caption: Getting Started
+
    installation
    example
 
