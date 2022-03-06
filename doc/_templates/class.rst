@@ -8,10 +8,6 @@
 
    {% block methods %}
    .. automethod:: __init__
-   .. automethod:: fit
-   .. automethod:: fit_formula
-   .. automethod:: predict
-
    {% endblock %}
 
 .. include:: {{module}}.{{objname}}.examples
