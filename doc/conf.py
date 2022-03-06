@@ -15,6 +15,7 @@
 import os
 import sys
 
+import sphinx
 import sphinx_gallery
 import sphinx_rtd_theme
 
@@ -52,7 +53,6 @@ numpydoc_show_class_members = False
 from distutils.version import LooseVersion
 
 # pngmath / imgmath compatibility layer for different sphinx versions
-import sphinx
 
 if LooseVersion(sphinx.__version__) < LooseVersion("1.4"):
     extensions.append("sphinx.ext.pngmath")
