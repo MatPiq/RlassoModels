@@ -19,7 +19,7 @@ Python implementation of Rigorous Lasso for estimation and inference. Based on t
    :caption: Getting Started
 
    installation
-   example
+   examples/basic_example
 
 .. toctree::
    :maxdepth: 2
