@@ -3,6 +3,7 @@ import logging
 import cvxpy as cp
 import numpy as np
 import scipy.stats as st
+from patsy import dmatrices
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
@@ -11,6 +12,69 @@ logger.setLevel(logging.INFO)
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
+    """
+    Rigorous Lasso estimator with theoretically justified
+    penalty levels and desirable convergence properties.
+
+    Parameters
+    ----------
+    post: bool, default=True
+        If True, post-lasso is used to estimate betas.
+    sqrt: bool, default=False
+        If True, sqrt lasso criterion is minimized:
+        loss = ||y - X @ beta||_2 / sqrt(n)
+        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+        Square-root lasso: pivotal recovery of sparse signals via
+        conic programming. Biometrika, 98(4), 791-806.
+    fit_intercept: bool, default=True
+        If True, intercept is estimated.
+    cov_type: str, default="nonrobust"
+        Type of covariance matrix.
+        "nonrobust" - nonrobust covariance matrix
+        "robust" - robust covariance matrix
+        "cluster" - cluster robust covariance matrix
+    x_dependent: bool, default=False
+        If True, the less conservative lambda is estimated
+        by simulation using the conditional distribution of the
+        design matrix.
+    lasso_psi: bool, default=False
+        If True, post-lasso is not used to obtain the residuals
+        during the iterative estimation procedure.
+    n_corr: int, default=5
+        Number of correlated variables to be used in the
+        for initial calculation of the residuals.
+    max_iter: int, default=2
+        Maximum number of iterations to perform in the iterative
+        estimation procedure.
+    n_sim: int, default=5000
+        Number of simulations to be performed for x-dependent
+        lambda calculation.
+    c: float, default=1.1
+        slack parameter for lambda calculation.
+
+
+
+
+    attributes
+    ----------
+    coef_: array-like, shape (n_features,)
+        Estimated coefficients.
+    intercept_: float
+        Estimated intercept.
+    lambd_: float
+        Estimated lambda/overall penalty level.
+    psi_: array-like, shape (n_features, n_features)
+        Estimated penalty loadings.
+    n_iter_: int
+        Number of iterations performed by the rlasso algorithm.
+    endog_: str
+        Name of the endogenous variable. Only stored if
+        fit_formula method is used.
+    exog_: list[str]
+        Names of the exogenous variables. Only stored if
+        fit_formula method is used.
+    """
+
     def __init__(
         self,
         *,
@@ -253,6 +317,22 @@ class Rlasso(BaseEstimator, RegressorMixin):
         return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k}
 
     def fit(self, X, y):
+        """
+        Fit the model to the dataself.
+
+        parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Design matrix.
+        y: array-like, shape (n_samples,)
+            Target vector.
+
+        returns
+        -------
+        self: object
+            Returns self.
+        """
+
         # check input
         X, y = check_X_y(X, y)
 
@@ -266,5 +346,37 @@ class Rlasso(BaseEstimator, RegressorMixin):
         # sklearn estimator must return self
         return self
 
-    def fit_formulat(self, formula, data):
-        pass
+    def fit_formula(self, formula, data):
+
+        # TODO: Solution to handle intercept
+
+        y, X = dmatrices(formula, data)
+
+        self.endog_ = y.design_info.column_names[0]
+        self.exog_ = X.design_info.column_names
+
+        X, y = np.asarray(X), np.asarray(y)
+        y = y.flatten()
+
+        res = self._fit(X, y)
+
+        self.coef_ = res["beta"]
+        self.psi_ = res["psi"]
+        self.lambd_ = res["lambd"]
+        self.n_iter_ = res["n_iter"]
+
+        # sklearn estimator must return self
+        return self
+
+    def predict(self, X):
+
+        # check if fitted
+        check_is_fitted(self, ["coef_"])
+        X = check_array(X)
+
+        pred = X @ self.coef_
+
+        if hasattr(self, "intercept_"):
+            pred += self.intercept_
+
+        return pred
