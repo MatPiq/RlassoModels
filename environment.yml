@@ -5,3 +5,5 @@ dependencies:
   - scikit-learn
   - cvxpy
   - patsy
+  - pandas
+  - nbsphinx

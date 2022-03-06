@@ -3,3 +3,4 @@ cvxpy
 scipy
 scikit-learn
 patsy
+pandas
