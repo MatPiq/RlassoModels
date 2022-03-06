@@ -403,6 +403,21 @@ class Rlasso(BaseEstimator, RegressorMixin):
         return self
 
     def fit_formula(self, formula, data):
+        """
+        Fit the the model to the data using fomula language.
+
+        Parameters
+        ----------
+        formula: str
+            Formula to fit the model. Ex: "y ~ x1 + x2 + x3"
+        data: Union[pandas.DataFrame, numpy.recarray, dict]
+            Dataset to fit the model.
+
+        Returns
+        -------
+        self: object
+            Returns self.
+        """
 
         # TODO: Solution to handle intercept
 
