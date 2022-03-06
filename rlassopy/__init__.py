@@ -1,8 +1,7 @@
 from ._version import __version__
-from .models import Rlasso, SqrtRlasso
+from .estimators import Rlasso
 
 __all__ = [
     "Rlasso",
-    "SqrtRlasso",
     "__version__",
 ]
