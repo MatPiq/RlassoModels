@@ -239,7 +239,7 @@ latex_documents = [
         "index",
         "project-template.tex",
         "project-template Documentation",
-        "Vighnesh Birodkar",
+        "Matias Piqueras",
         "manual",
     ),
 ]

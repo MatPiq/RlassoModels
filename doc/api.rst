@@ -14,13 +14,3 @@ Rlasso
    :template: class.rst
 
    Rlasso
-
-SqrtRlasso
-===========
-
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-
-   SqrtRlasso
-

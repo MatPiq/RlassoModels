@@ -14,14 +14,9 @@ Estimators
 Rlasso
 ~~~~~~~~~~
 
+RlassoEffects
+~~~~~~~~~~~~~
 
-SqrtRlasso
-~~~~~~~~~~
-
-
-RlassoLogit
-~~~~~~~~~~
-
-Inference
-----------
+RlassoIV
+~~~~~~~~~~~~~
 

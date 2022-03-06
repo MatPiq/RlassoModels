@@ -1,7 +1,7 @@
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
-from rlassopy import Rlasso, SqrtRlasso
+from rlassopy import Rlasso
 
 
 @pytest.mark.parametrize("estimator", [Rlasso(), SqrtRlasso()])

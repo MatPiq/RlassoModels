@@ -50,20 +50,35 @@ class Rlasso(BaseEstimator, RegressorMixin):
         Number of simulations to be performed for x-dependent
         lambda calculation.
     c: float, default=1.1
-        slack parameter for lambda calculation.
-
-
-
+        slack parameter used for lambda calculation. From
+        Hansen et.al. (2020): "c needs to be greater than 1
+        for the regularization event to hold asymptotically,
+        but not too high as the shrinkage bias is increasing in c."
+    gamma: float, default=0.1 / log(n)
+        Significance level for the quantile function in lambda
+        calculation. Probability of the regularization event to
+        hold asymptotically = 1 - gamma.
+    zero_tol: float, default=1e-4
+        Tolerance for the rounding of the coefficients to zero.
+    convergence_tol: float, default=1e-4
+        Tolerance for the convergence of the iterative estimation
+        procedure.
+    verbose: bool, default=False
+        If True, the progress of the iterative estimation procedure
+        is printed.
+    solver_opts: dict, default=None
+        Dictionary with additional options for the cvxpy solver.
+        See cvxpy documentation for details: https://cvxpy.org/.
 
     attributes
     ----------
-    coef_: array-like, shape (n_features,)
+    coef_: numpy.array, shape (n_features,)
         Estimated coefficients.
     intercept_: float
         Estimated intercept.
     lambd_: float
         Estimated lambda/overall penalty level.
-    psi_: array-like, shape (n_features, n_features)
+    psi_: numpy.array, shape (n_features, n_features)
         Estimated penalty loadings.
     n_iter_: int
         Number of iterations performed by the rlasso algorithm.
@@ -112,7 +127,10 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     def _psi_calc(self, X, n, v=None):
 
+        """Calculate the penalty loadings."""
+
         # TODO Implement cluster robust covariance
+
         # loadings for sqrt lasso
         if self.sqrt:
 
@@ -158,18 +176,53 @@ class Rlasso(BaseEstimator, RegressorMixin):
         X=None,
         psi=None,
     ):
+        """Calculate the lambda/overall penalty level."""
+
+        # TODO Always return both lambda and lambda scaled by RMSE
+        # for the purpose of comparison between specifications.
+
+        # TODO: Implement cluster robust case
 
         # catch parameters are provided
-
-        if self.cov_type == "nonrobust" and s1 is None:
-            raise ValueError(f"RMSE must be provided for {self.cov_type}")
-
-        if self.x_dependent and psi is None:
-            raise ValueError("X must be provided for x_dependent")
+        # if self.cov_type == "nonrobust" and s1 is None:
+        #     raise ValueError(f"RMSE must be provided for {self.cov_type}")
+        #
+        # if self.x_dependent and psi is None:
+        #     raise ValueError("X must be provided for x_dependent")
 
         if self.sqrt:
             lasso_factor = self.c
-            pass
+            # x-independent (same for robust and nonrobust)
+            if not self.x_dependent:
+                prob = st.norm.ppf(1 - (self.gamma / (2 * p)))
+                lambd = lasso_factor * np.sqrt(n) * prob
+
+            # x-dependent and nonrobust case
+            elif self.x_dependent and self.cov_type == "nonrobust":
+                Xpsi = X @ np.linalg.inv(psi)
+                sims = np.empty(self.n_sim)
+                for r in range(self.n_sim):
+                    g = np.random.normal(size=(n, 1))
+                    sg = np.mean(g**2)
+                    sims[r] = sg * np.max(np.abs(np.sum(Xpsi * g, axis=0)))
+
+                lambd = lasso_factor * np.quantile(sims, 1 - self.gamma)
+
+            # x-dependent and robust case
+            elif self.x_dependent and self.cov_type == "robust":
+                Xpsi = X @ np.linalg.inv(psi)
+                v = v.reshape(-1, 1)
+                sims = np.empty(self.n_sim)
+                for r in range(self.n_sim):
+                    g = np.random.normal(size=(n, 1))
+                    sg = np.mean(g**2)
+                    sims[r] = sg * np.max(np.abs(np.sum(Xpsi * v * g, axis=0)))
+
+                lambd = lasso_factor * np.quantile(sims, 1 - self.gamma)
+
+            # x-dependent and clustered case
+            else:
+                raise NotImplementedError("Cluster robust penalty not implemented")
 
         else:
 
@@ -197,21 +250,22 @@ class Rlasso(BaseEstimator, RegressorMixin):
             elif self.cov_type in ("robust", "cluster") and not self.x_dependent:
 
                 proba = st.norm.ppf(1 - (self.gamma / (2 * p)))
-                # homoscedastic/non-robust case
                 lambd = lasso_factor * np.sqrt(n) * proba
 
             # heteroscedastic/cluster robust and x-dependent case
             elif self.cov_type == "robust" and self.x_dependent:
-                assert psi is not None
                 sims = np.empty(self.n_sim)
                 Xpsi = X @ np.linalg.inv(psi)
-
+                v = v.reshape(-1, 1)  # reshape to column vector
                 for r in range(self.n_sim):
-                    v = v.reshape(-1, 1)  # reshape to column vector
                     g = np.random.normal(size=(n, 1))
-                    sims[r] = np.max(np.abs(np.sum(Xpsi * (v * g), axis=0)))
+                    sims[r] = np.max(np.abs(np.sum(Xpsi * v * g, axis=0)))
 
                 lambd = lasso_factor * np.quantile(sims, 1 - self.gamma)
+
+            # heteroscedastic/cluster robust and x-dependent case
+            else:
+                raise NotImplementedError("Cluster robust penalty not implemented")
 
         return lambd
 
@@ -234,6 +288,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     @staticmethod
     def _post_lasso(beta, X, y):
+        """Run post-lasso/OLS on the lasso coefficients."""
 
         nonzero_idx = np.where(beta != 0)[0]
         X_sub = X[:, nonzero_idx]
@@ -255,6 +310,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         return loss + reg
 
     def _fit(self, X, y):
+        """Helper function to fit the model."""
 
         n, p = X.shape
 
@@ -369,6 +425,20 @@ class Rlasso(BaseEstimator, RegressorMixin):
         return self
 
     def predict(self, X):
+
+        """
+        Use fitted model to predict on new data.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Design matrix.
+
+        returns
+        -------
+        y_pred: numpy.array, shape (n_samples,)
+            Predicted target values.
+        """
 
         # check if fitted
         check_is_fitted(self, ["coef_"])

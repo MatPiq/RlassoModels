@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.datasets import load_iris
 
-from rlassopy import Rlasso, SqrtRlasso
+from rlassopy import Rlasso
 
 
 @pytest.fixture
