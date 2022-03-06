@@ -7,17 +7,18 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 
-class RlassoBase(BaseEstimator, RegressorMixin, metaclass=ABCMeta):
-    """Base class for RLassso and SqrtRLassso"""
-
+class RlassoPenalty:
     def __init__(
         self,
         *,
         post=True,
+        sqrt=False,
+        fit_intercept=True,
         cov_type="nonrobust",
         x_dependent=False,
         n_corr=5,
-        max_iter=5000,
+        max_iter=2,
+        n_sim=5000,
         c=1.1,
         gamma=None,
         zero_tol=1e-4,
@@ -25,10 +26,170 @@ class RlassoBase(BaseEstimator, RegressorMixin, metaclass=ABCMeta):
         solver_opts=None,
     ):
         self.post = post
+        self.sqrt = sqrt
+        self.fit_intercept = fit_intercept
         self.cov_type = cov_type
         self.x_dependent = x_dependent
         self.n_corr = n_corr
         self.max_iter = max_iter
+        self.n_sim = n_sim
+        self.c = c
+        self.gamma = gamma
+        self.zero_tol = zero_tol
+        self.convergence_tol = convergence_tol
+        self.solver_opts = solver_opts or {}
+
+    def _loadings(self, X, resid, n):
+
+        # TODO Implement cluster robust covariance
+        # loadings for sqrt lasso
+        if self.sqrt:
+
+            if self.cov_type == "nonrobust":
+                psi = np.sqrt(np.mean(X**2, axis=0))
+
+            # heteroscedastic robust case
+            elif self.cov_type == "robust" and resid is not None:
+                Xe2 = np.einsum("ij, i -> j", X**2, resid**2)
+                psi_1 = np.sqrt(Xe2 / n)
+                psi_2 = np.sqrt(Xe2 / np.sum(resid**2))
+                psi = np.maximum(psi_1, psi_2)
+            # clustered
+            else:
+                raise NotImplementedError(
+                    "Cluster robust loadings not \
+                                            implemented"
+                )
+
+        else:
+            if self.cov_type == "nonrobust":
+                psi = np.sqrt(np.mean(X**2, axis=0))
+            elif self.cov_type == "robust" and resid is not None:
+
+                Xe2 = np.einsum("ij, i -> j", X**2, resid**2)
+                psi = np.sqrt(Xe2 / n)
+
+            else:
+                raise NotImplementedError(
+                    "Cluster robust loadings not \
+                                            implemented"
+                )
+
+        return np.diag(psi)
+
+    def _penalty(
+        self,
+        n,
+        p,
+        *,
+        sigma_hat=None,
+        X=None,
+        psi=None,
+    ):
+
+        if self.sqrt:
+            pass
+
+        else:
+            # homoscedasticity and x-independent case
+            if self.cov_type == "nonrobust" and not self.x_dependent:
+                assert sigma_hat is not None
+                proba = st.norm.ppf(1 - (self.gamma / (2 * p)))
+                # homoscedastic/non-robust case
+                lambd = 2 * self.c * sigma_hat * np.sqrt(n) * proba
+
+            # homoscedastic and x-dependent case
+            elif self.cov_type == "nonrobust" and self.x_dependent:
+                sims = np.empty(self.n_sim)
+                Xpsi = X @ psi
+                for r in range(self.n_sim):
+                    g = np.random.normal(size=(n, p))
+                    sims[r] = n * np.max(2 * np.abs(np.mean(Xpsi * g, axis=0)))
+
+                lambd = self.c * sigma_hat * np.quantile(sims, 1 - self.gamma)
+
+            # heteroscedastic/cluster robust and x-independent case
+            elif self.cov_type in ("robust", "cluster") and not self.x_dependent:
+
+                proba = st.norm.ppf(1 - (self.gamma / (2 * p)))
+                # homoscedastic/non-robust case
+                lambd = 2 * self.c * np.sqrt(n) * proba
+
+            # heteroscedastic/cluster robust and x-dependent case
+            elif self.cov_type == "robust" and self.x_dependent:
+                sims = np.empty(self.n_sim)
+                Xpsi = X @ psi
+
+                for r in range(self.n_sim):
+                    g = np.random.normal(size=(n, p))
+                    sims[r] = n * np.max(2 * np.abs(np.mean(Xpsi * g, axis=0)))
+
+        return lambd
+
+    def _cvxpy_solve(self, X, y, lambd, psi, n, post):
+
+        _, p = X.shape
+
+        beta = cp.Variable(p)
+        objective = cp.Minimize(self._criterion_function(X, y, beta, lambd, psi, n))
+        # define the problem
+        prob = cp.Problem(objective)
+        # solve the problem
+        prob.solve(**self.solver_opts)
+        # get fitted coefficients
+        beta = beta.value
+        # round coefficients to zero if they are below the tolerance
+        beta[np.where(np.abs(beta) < self.zero_tol)] = 0.0
+
+        return beta
+
+    @staticmethod
+    def _post_ols(beta, X, y):
+
+        nonzero_idx = np.where(beta != 0)[0]
+        X_sub = X[:, nonzero_idx]
+        post_beta = np.linalg.inv(X_sub.T @ X_sub) @ X_sub.T @ y
+        beta[nonzero_idx] = post_beta
+
+        return beta
+
+    def fit(self, X, y):
+        # check input
+        X, y = check_X_y(X, y)
+
+        # get gamma
+        n, p = X.shape
+
+        if self.gamma is None:
+            self.gamma = 0.1 / np.sqrt(n)
+
+
+class RlassoBase(BaseEstimator, RegressorMixin, metaclass=ABCMeta):
+    """Base class for RLassso and SqrtRLassso"""
+
+    def __init__(
+        self,
+        *,
+        fit_intercept=True,
+        post=True,
+        cov_type="nonrobust",
+        x_dependent=False,
+        n_corr=5,
+        max_iter=2,
+        n_sim=5000,
+        c=1.1,
+        gamma=None,
+        zero_tol=1e-4,
+        convergence_tol=1e-4,
+        solver_opts=None,
+    ):
+        self.fit_intercept = fit_intercept
+        self.post = post
+        self.cov_type = cov_type
+        self.x_dependent = x_dependent
+        self.n_corr = n_corr
+        self.max_iter = max_iter
+        self.n_sim = n_sim
         self.c = c
         self.gamma = gamma
         self.zero_tol = zero_tol
@@ -48,7 +209,14 @@ class RlassoBase(BaseEstimator, RegressorMixin, metaclass=ABCMeta):
         """
 
         X, y = check_X_y(X, y)
-        self.coef_, self.lambd_, self.psi_ = self._rlasso_algorithm(X, y)
+
+        # Intercept handling and scaling
+        if self.fit_intercept:
+            # mean center the design matrix
+            X = X - X.mean(axis=0)
+            y = y - y.mean()
+
+        self.coef_, self.lambd_, self.psi_ = self._rlasso_algorithm(X=X, y=y)
 
         return self
 
@@ -69,10 +237,14 @@ class RlassoBase(BaseEstimator, RegressorMixin, metaclass=ABCMeta):
         check_is_fitted(self, "coef_")
         X = check_array(X)
 
-        return X @ self.coef_
+        pred = X @ self.coef_
+        if self.fit_intercept:
+            pred += self.intercept_
+
+        return pred
 
     @abstractmethod
-    def _rlasso_algorithm(self, X, y):
+    def _rlasso_algorithm(self, X, y, X_hat, y_hat):
         pass
 
     @abstractmethod
@@ -158,14 +330,27 @@ class Rlasso(RlassoBase):
 
         return np.diag(psi)
 
-    def _penalty_level(self, n, p, *, sigma_hat=None, X=None):
+    def _penalty_level(self, n, p, *, sigma_hat=None, X=None, psi=None):
 
         if self.gamma is None:
             self.gamma = 0.1 / np.log(n)
 
         if self.x_dependent:
             # TODO: Implement x-dependent penalty level
-            raise NotImplementedError
+            sims = np.empty(self.n_sim)
+            Xpsi = X @ psi
+            if self.cov_type == "nonrobust":
+
+                for r in range(self.n_sim):
+                    g = np.random.normal(size=(n, p))
+                    sims[r] = n * np.max(2 * np.abs(np.mean(Xpsi * g, axis=0)))
+
+                lambd = self.c * sigma_hat * np.quantile(sims, 1 - self.gamma)
+
+            else:
+
+                pass
+                print(f"Lambda: {lambd}")
 
         # x-independent case
         else:
@@ -192,13 +377,18 @@ class Rlasso(RlassoBase):
         beta0 = np.linalg.inv(X_top.T @ X_top) @ X_top.T @ y
         resid0 = y - X_top @ beta0
 
-        self.n_iter_ = 0
+        n_iter = 0
         if self.cov_type == "nonrobust":
             psi = self._penalty_loadings(X=X, n=n)
             lambd0 = 0.0
             for _ in range(self.max_iter):
                 sigmahat = np.sqrt(np.mean(resid0**2))
-                lambd = self._penalty_level(n=n, p=p, sigma_hat=sigmahat)
+                if self.x_dependent:
+                    lambd = self._penalty_level(
+                        n=n, p=p, sigma_hat=sigmahat, X=X, psi=psi
+                    )
+                else:
+                    lambd = self._penalty_level(n=n, p=p, sigma_hat=sigmahat)
 
                 if np.isclose(lambd, lambd0, atol=self.convergence_tol):
                     break
@@ -212,7 +402,7 @@ class Rlasso(RlassoBase):
                     )
                     resid0 = y - X @ beta0
                     lambd0 = lambd
-                    self.n_iter_ += 1
+                    n_iter += 1
             lambd = lambd0
 
         else:
@@ -233,7 +423,7 @@ class Rlasso(RlassoBase):
                     )
                     resid0 = y - X @ beta0
                     psi0 = psi
-                    self.n_iter_ += 1
+                    n_iter += 1
             psi = psi0
 
         beta = beta0
