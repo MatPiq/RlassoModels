@@ -4,7 +4,7 @@ import cvxpy as cp
 import numpy as np
 import scipy.stats as st
 from patsy import dmatrices
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 logger = logging.getLogger(__name__)
@@ -465,3 +465,78 @@ class Rlasso(BaseEstimator, RegressorMixin):
             pred += self.intercept_
 
         return pred
+
+
+class RlassoLogit(BaseEstimator, ClassifierMixin):
+    def __init__(
+        self,
+        post=True,
+        fit_intercept=True,
+        c=1.1,
+        gamma=None,
+        zero_tol=1e-4,
+        solver_opts=None,
+    ):
+        """Rigorous Lasso Logistic Regression."""
+
+        self.post = post
+        self.fit_intercept = fit_intercept
+        self.c = c
+        self.gamma = gamma
+        self.zero_tol = zero_tol
+        self.solver_opts = solver_opts or {}
+
+    def _criterion_function(self, X, y, beta, lambd, n):
+        """Criterion function for the penalized Lasso Logistic Regression."""
+
+        ll = cp.sum(cp.multiply(y, X @ beta) - cp.logistic(X @ beta)) / n
+        reg = (lambd / n) * cp.norm1(beta)
+
+        return -(ll - reg)
+
+    def _cvxpy_solve(self, X, y, lambd, n, p):
+        """Solve the problem using cvxpy."""
+
+        beta = cp.Variable(p)
+        objective = cp.Minimize(self._criterion_function(X, y, beta, lambd, n))
+        prob = cp.Problem(obj)
+
+        # solve problem and return beta
+        prob.solve(**self.solver_opts)
+        beta = beta.value
+        beta[np.abs(beta) < self.zero_tol] = 0.0
+
+        return beta
+
+    def _decision_function(self, X, beta):
+        """Compute the decision function of the model."""
+        return 1 / (1 + np.exp(-X @ beta))
+
+    def _lambd_calc(self):
+        pass
+
+    def _fit(self, X, y):
+
+        return res
+
+    def fit(self, X, y):
+        """Fit the model to the data."""
+
+        # check inputs
+        X, y = check_X_y(X, y, accept_sparse=True, ensure_2d=True)
+
+        # assert y is binary
+        if np.unique(y).shape[0] != 2:
+            raise ValueError("y must be binary")
+
+        res = self._fit(X, y)
+
+        return self
+
+    def predict(self, X):
+        """Predict new data"""
+        # check model is fitted and inputs are correct
+        check_is_fitted(self, ["coef_"])
+        X = check_array(X)
+
+        return self._decision_function(X, self.coef_)
