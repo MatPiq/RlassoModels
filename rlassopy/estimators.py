@@ -486,13 +486,15 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         self.zero_tol = zero_tol
         self.solver_opts = solver_opts or {}
 
-    def _criterion_function(self, X, y, beta, lambd, n):
+    def _criterion_function(self, X, y, beta, lambd, n, regularization=True):
         """Criterion function for the penalized Lasso Logistic Regression."""
 
         ll = cp.sum(cp.multiply(y, X @ beta) - cp.logistic(X @ beta)) / n
-        reg = (lambd / n) * cp.norm1(beta)
-
-        return -(ll - reg)
+        if not regularization:
+            return -ll
+        else:
+            reg = (lambd / n) * cp.norm1(beta)
+            return -(ll - reg)
 
     def _cvxpy_solve(self, X, y, lambd, n, p):
         """Solve the problem using cvxpy."""
@@ -512,12 +514,23 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         """Compute the decision function of the model."""
         return 1 / (1 + np.exp(-X @ beta))
 
-    def _lambd_calc(self):
-        pass
+    def _lambd_calc(self, n, p):
+        lambd0 = (self.c / 2) * np.sqrt(n) * st.norm.ppf(1 - self.gamma / (2 * p))
+        lambd = lambd0 / (2 * n)
+        return lambd0, lambd
 
     def _fit(self, X, y):
 
-        return res
+        n, p = X.shape
+
+        if self.gamma is None:
+            self.gamma = 0.1 / np.log(n)
+
+        lambd0, lambd = self._lambd_calc(n, p)
+
+        beta = self._cvxpy_solve(X, y, lambd, n, p)
+
+        return {"beta": beta, "lambd0": lambd0, "lambd": lambd}
 
     def fit(self, X, y):
         """Fit the model to the data."""
@@ -531,10 +544,23 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
 
         res = self._fit(X, y)
 
+        self.coef_ = res["beta"]
+        self.lambd0_ = res["lambd0"]
+        self.lambd_ = res["lambd"]
+
         return self
 
     def predict(self, X):
-        """Predict new data"""
+        """Predict the class labels for X."""
+        # check model is fitted and inputs are correct
+        check_is_fitted(self, ["coef_"])
+        X = check_array(X)
+
+        probas = self._decision_function(X, self.coef_)
+        return np.where(probas > 0.5, 1, 0)
+
+    def predict_proba(self, X):
+        """Predict class probabilities for X."""
         # check model is fitted and inputs are correct
         check_is_fitted(self, ["coef_"])
         X = check_array(X)
