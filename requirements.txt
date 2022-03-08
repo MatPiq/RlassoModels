@@ -3,7 +3,3 @@ cvxpy
 scipy
 scikit-learn
 patsy
-pandas
-nbsphinx
-ipython
-

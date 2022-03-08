@@ -15,11 +15,11 @@ DISTNAME = "rlassopy"
 DESCRIPTION = "A template for scikit-learn compatible packages."
 with codecs.open("README.rst", encoding="utf-8-sig") as f:
     LONG_DESCRIPTION = f.read()
-MAINTAINER = "V. Birodkars, G. Lemaitre"
-MAINTAINER_EMAIL = "vighneshbirodkar@nyu.edu, g.lemaitre58@gmail.com"
-URL = "https://github.com/scikit-learn-contrib/project-template"
+MAINTAINER = "Matias Piqueras"
+MAINTAINER_EMAIL = "matias@piqueras.se"
+URL = "https://github.com/matpiq/rlassopy"
 LICENSE = "new BSD"
-DOWNLOAD_URL = "https://github.com/scikit-learn-contrib/project-template"
+DOWNLOAD_URL = "https://github.com/matpiq/rlassopy"
 VERSION = __version__
 INSTALL_REQUIRES = ["numpy", "scipy", "scikit-learn"]
 CLASSIFIERS = [
@@ -40,7 +40,15 @@ CLASSIFIERS = [
 ]
 EXTRAS_REQUIRE = {
     "tests": ["pytest", "pytest-cov"],
-    "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
+    "docs": [
+        "sphinx",
+        "sphinx-gallery",
+        "sphinx_rtd_theme",
+        "numpydoc",
+        "matplotlib",
+        "nbsphinx",
+        "ipython",
+    ],
 }
 
 setup(
