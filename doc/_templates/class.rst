@@ -6,9 +6,6 @@
 .. autoclass:: {{ objname }}
    :members:
 
-   {% block methods %}
-   .. automethod:: __init__
-   {% endblock %}
 
 .. include:: {{module}}.{{objname}}.examples
 
