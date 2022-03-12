@@ -9,8 +9,9 @@ def lasso_shooting(
     psi,
     *,
     sqrt=False,
+    intercept=False,
     max_iter=1000,
-    opt_tol=1e-5,
+    opt_tol=1e-10,
     zero_tol=1e-4,
     beta_start=None,
     XX=None,
@@ -46,6 +47,10 @@ def lasso_shooting(
     beta : ndarray
         Estimated beta.
     """
+
+    # def soft_threshold(x, y):
+    #     return np.sign(x) * np.maximum(np.abs(x) - y, 0)
+
     n, p = X.shape
 
     if XX is None:
@@ -55,27 +60,68 @@ def lasso_shooting(
         Xy = X.T @ y
 
     if beta_start is None:
-        beta = la.inv(XX) @ Xy
+        # ridge regression
+        if sqrt:
+            beta = la.solve(XX * n * 2 + lambd * np.diag(psi**2), Xy * n * 2)
+        else:
+            beta = la.solve(XX + lambd * np.diag(psi**2), Xy)
+        # beta = la.inv(XX) @ Xy
     else:
         beta = beta_start
 
     if sqrt:
         XX /= n
         Xy /= n
+        # calc residuals
+        v = y - X @ beta
+        mse = v.T @ v / n
 
     else:
         XX *= 2
         Xy *= 2
 
     for _ in range(max_iter):
-        beta_old = beta
+
+        beta_old = beta.copy()
+
         for j in range(p):
             s0 = np.sum(XX[j, :] * beta) - XX[j, j] * beta[j] - Xy[j]
 
             # TODO: Finish sqrt lasso
             # sqrt lasso
             if sqrt:
+                if np.abs(beta[j]) > 0:
+                    v += X[:, j] * beta[j]
+                    mse = np.mean(v**2)
+
                 if n**2 < (lambd * psi[j]) ** 2 / XX[j, j]:
+                    beta[j] = 0
+
+                elif s0 > lambd / (n * psi[j] * np.sqrt(mse)):
+                    beta[j] = (
+                        (
+                            lambd
+                            * psi[j]
+                            / np.sqrt(n**2 - (lambd * psi[j]) ** 2 / XX[j, j])
+                        )
+                        * np.sqrt(np.max((mse - (s0**2 / XX[j, j]), 0)))
+                        - s0
+                    ) / XX[j, j]
+                    v -= X[:, j] * beta[j]
+
+                elif s0 < -lambd / (n * psi[j] * np.sqrt(mse)):
+                    beta[j] = (
+                        -(
+                            lambd
+                            * psi[j]
+                            / np.sqrt(n**2 - (lambd * psi[j]) ** 2 / XX[j, j])
+                        )
+                        * np.sqrt(np.max((mse - (s0**2 / XX[j, j]), 0)))
+                        - s0
+                    ) / XX[j, j]
+                    v -= X[:, j] * beta[j]
+
+                else:
                     beta[j] = 0
 
             # lasso
