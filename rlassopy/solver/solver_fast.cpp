@@ -13,6 +13,7 @@
 
 namespace py = pybind11;
 using namespace Eigen;
+using namespace std;
 
 VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
                        double lambd, VectorXd psi, VectorXd startingValues,
@@ -77,32 +78,28 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
 
     // get error
     VectorXd error = y - X * beta;
-    double qhat = error.pow(2).sum() / n;
+    double qhat = error.squaredNorm() / n;
 
     for (int i = 0; i < maxIter; i++) {
 
       VectorXd betaOld = beta;
       for (int j = 0; j < p; j++) {
 
-        double S0 = (XX.row(j) * beta).sum() - XX(j, j) * beta(j) - Xy(j);
 
         if (fabs(beta(j)) > 0) {
           error += X.col(j) * beta(j);
           qhat = error.squaredNorm() / n;
         }
 
+        double S0 = (XX.row(j) * beta).sum() - XX(j, j) * beta(j) - Xy(j);
+        double qqhat = max(qhat - (pow(S0, 2) / XX(j, j)), 0.0);
+
         if (pow(n, 2) < pow(lambd * psi(j), 2) / XX(j, j)) {
           beta(j) = 0;
         }
 
-        double qqhat = qhat - (pow(S0, 2) / XX(j, j));
-        if (qqhat < 0) {
-          qqhat = 0;
-        }
 
-        // double tmpThresh = (lambd / n) * psi(j) * sqrt(qhat);
-
-        else if (S0 > lambd /n * psi(j) * sqrt(qhat)) {
+        else if (S0 > lambd / n * psi(j) * sqrt(qhat)) {
           beta[j] = ((lambd * psi(j) /
                       sqrt(pow(n, 2) - pow(lambd * psi(j), 2) / XX(j, j))) *
                          sqrt(qqhat) -
@@ -111,13 +108,13 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
           error -= X.col(j) * beta[j];
         }
 
-        else if (S0 < - lambd / n * psi(j) * sqrt(qhat)) { // Optimal beta(j) > 0
+        else if (S0 < -lambd / n * psi(j) * sqrt(qhat)) { // Optimal beta(j) > 0
           beta[j] = (-(lambd * psi(j) /
                        sqrt(pow(n, 2) - pow(lambd * psi(j), 2) / XX(j, j))) *
                          sqrt(qqhat) -
                      S0) /
                     XX(j, j);
-          error =- X.col(j) * beta(j);
+          error = -X.col(j) * beta(j);
         }
 
         else {
@@ -129,7 +126,6 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
       double ErrorNorm = (y - X * beta).squaredNorm();
       double fobj =
           ErrorNorm / sqrt(n) + (lambd / n) * (psi * beta.cwiseAbs()).sum();
-
 
       if (ErrorNorm > MaxErrorNorm) {
         VectorXd aaa = (sqrt(n) * error / ErrorNorm);
@@ -158,15 +154,8 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
 PYBIND11_MODULE(solver_fast, m) {
   // pybind11::module m("code", "auto-compiled c++ extension");
   m.doc() = "Coordinate descent solver for lasso and sqrt-lasso";
-  m.def("lasso_shooting", &lassoShooting, "Lasso shooting solver",
-        py::arg("X"),
-        py::arg("y"),
-        py::arg("XX"),
-        py::arg("Xy"),
-        py::arg("lambd"),
-        py::arg("psi"),
-        py::arg("starting_values"),
-        py::arg("sqrt") = false,
-        py::arg("opt_tol") = 1e-10,
-        py::arg("max_iter") = 1000);
+  m.def("lasso_shooting", &lassoShooting, "Lasso shooting solver", py::arg("X"),
+        py::arg("y"), py::arg("XX"), py::arg("Xy"), py::arg("lambd"),
+        py::arg("psi"), py::arg("starting_values"), py::arg("sqrt") = false,
+        py::arg("opt_tol") = 1e-10, py::arg("max_iter") = 1000);
 }
