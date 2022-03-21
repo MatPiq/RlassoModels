@@ -158,15 +158,15 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
 PYBIND11_MODULE(solver_fast, m) {
   // pybind11::module m("code", "auto-compiled c++ extension");
   m.doc() = "Coordinate descent solver for lasso and sqrt-lasso";
-  m.def("lasso_shooting", &lassoShooting, "Lasso shooting solver",
-        py::arg("X"),
-        py::arg("y"),
-        py::arg("XX"),
-        py::arg("Xy"),
-        py::arg("lambd"),
-        py::arg("psi"),
-        py::arg("starting_values"),
-        py::arg("sqrt") = false,
-        py::arg("opt_tol") = 1e-10,
-        py::arg("max_iter") = 1000);
-}
+  m.def("lasso_shooting", &lassoShooting, "Lasso shooting solver"
+        // py::arg("X").noconvert() = NULL, 
+        // py::arg("y").noconvert() = NULL,
+        // py::arg("XX").noconvert() = NULL, 
+        // py::arg("Xy").noconvert() = NULL,
+        // py::arg("lambd") = NULL, 
+        // py::arg("psi") = NULL,
+        // py::arg("starting_values").noconvert() = NULL,
+        // py::arg("sqrt") = false, 
+        // py::arg("opt_tol") = 1e-10,
+        // py::arg("max_iter") = 1000);
+);}
