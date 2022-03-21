@@ -4,14 +4,20 @@
 // ['/users/matiaspiqueras/eigen'] setup_pybind11(cfg)
 // %>
 // Created by matias on 10/11/19.
-#include <eigen/Eigen/Core>
-#include </opt/homebrew/Cellar/pybind11/2.9.1/libexec/lib/python3.9/site-packages/pybind11/include/pybind11/eigen.h>
+#include "eigen/Eigen/Eigen"
 #include <iostream>
 #include <math.h>
-#include <pybind11/pybind11.h>
+#include </opt/homebrew/Cellar/pybind11/2.9.1/libexec/lib/python3.9/site-packages/pybind11/include/pybind11/eigen.h>
+#include "eigen/unsupported/Eigen/MatrixFunctions"
+//
+// #include<iostream>
+//
+// #include <pybind11/eigen.h>
+// #include <pybind11/pybind11.h>
+//
+// #include <Eigen/Dense>
 
 namespace py = pybind11;
-
 using namespace Eigen;
 
 VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
@@ -33,9 +39,6 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
   // normal lasso shooting
   if (!sqrtLasso) {
 
-    // double the XX and Xy
-    XX *= 2, Xy *= 2;
-
     // check if starting values are provided
     // computes ridge regression otherwise
     // if (starting_values.rows() == 0) {
@@ -46,6 +49,7 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
     //   VectorXd beta = starting_values;
     // }
 
+    XX *= 2, Xy *= 2;
     // loop over max iter
     for (int i = 0; i < maxIter; i++) {
       // copy beta to beta_old
@@ -75,20 +79,21 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
   } else {
     // rescale XX and Xy
     XX /= n, Xy /= n;
+    double MaxErrorNorm = 1.0e-10;
 
     // get error
     VectorXd error = y - X * beta;
-    double qhat = error.power(2).sum() / n;
+    double qhat = error.pow(2).sum() / n;
 
     for (int i = 0; i < maxIter; i++) {
 
-      VectorXd beta_old = beta;
+      VectorXd betaOld = beta;
       for (int j = 0; j < p; j++) {
         double s0 = (XX.row(j) * beta).sum() - XX(j, j) * beta(j) - Xy(j);
 
         if (fabs(beta(j)) > 0) {
           error += X.col(j) * beta(j);
-          qhat = sum(pow(error, 2)) / n;
+          qhat = error.pow(2).sum() / n;
         }
 
         if (pow(n, 2) < pow(lambd, 2) / XX(j, j)) {
@@ -100,15 +105,58 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
         if (qqhat < 0) {
           qqhat = 0;
         }
-        if (s0 > tmp) {
+
+        if (s0 > tmp) { // Optimal beta(j) < 0
+          beta[j] = ((lambd / sqrt(pow(n, 2) - pow(lambd, 2) / XX(j, j))) *
+                         sqrt(qqhat) -
+                     s0) /
+                    XX(j, j);
+          error = error - X.col(j) * beta[j];
+        }
+        if (s0 < -tmp) { // Optimal beta(j) > 0
+          beta[j] = (-(lambd / sqrt(pow(n, 2) - pow(lambd, 2) / XX(j, j))) *
+                         sqrt(qqhat) -
+                     s0) /
+                    XX(j, j);
+          error = error - X.col(j) * beta[j];
+        }
+
+        if (fabs(s0) <= tmp) { // Optimal beta(j) = 0
+          beta[j] = 0;
+        }
+      } // end loop beta^(i)_j
+
+      // Update primal and dual value
+      double fobj = sqrt((X * beta - y).pow(2).sum() / n) +
+                    (lambd * beta.cwiseAbs() / n).sum();
+
+      double ErrorNorm = error.norm();
+      VectorXd lambdVec = VectorXd::Ones(p) * lambd;
+      if (ErrorNorm > MaxErrorNorm) {
+        VectorXd aaa  = (sqrt(n)*error/ErrorNorm);
+        VectorXd bbb = (  lambdVec/n - (X.transpose()*aaa/n).cwiseAbs() ).cwiseAbs();
+        double dual = (aaa.transpose()) * y/n - bbb.transpose() * (beta).cwiseAbs();
+        // check convergence
+        if (fobj - dual < optTol) {
+          if ((beta - betaOld).norm() < optTol) {
+            break;
+          }
+        }
+      } else {
+        double dual = (lambd * (beta).cwiseAbs().sum() / n);
+        // check convergence
+        if (fobj - dual < optTol) {
+          if ((beta - betaOld).norm() < optTol) {
+            break;
+          }
         }
       }
     }
-
-    return beta;
   }
+    return beta;
+}
 
-  PYBIND11_MODULE(solver_fast, m) {
+  PYBIND11_MODULE(lassoShooting, m) {
     // pybind11::module m("code", "auto-compiled c++ extension");
     m.doc() = "Coordinate descent solver for lasso and sqrt-lasso";
 
