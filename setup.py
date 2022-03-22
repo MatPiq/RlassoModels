@@ -2,7 +2,7 @@ from glob import glob
 
 import pybind11
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-from setuptools import setup
+from skbuild import setup
 
 # from setuptools import Extension, setup
 
@@ -14,7 +14,6 @@ ext_modules = [
         sorted(glob("rlassopy/*.cpp")),
         include_dirs=[pybind11.get_include(), "extern/eigen-3.4.0"],
         define_macros=[("VERSION_INFO", __version__)],
-        cxx_std=14,
     ),
 ]
 

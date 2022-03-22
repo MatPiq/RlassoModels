@@ -1,9 +1,3 @@
-// <%
-// cfg['compiler_args'] = ['-std=c++14', '-stdlib=libc++',
-// '-mmacosx-version-min=10.7'] cfg['include_dirs'] =
-// ['/users/matiaspiqueras/eigen'] setup_pybind11(cfg)
-// %>
-// Created by matias on 10/11/19.
 #include <Eigen/Eigen>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <iostream>
@@ -24,26 +18,9 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
   int n = X.rows(), p = X.cols();
   VectorXd beta = startingValues;
 
-  // // check if XX and Xy are provided as input
-  // if (!XX) {
-  //   Eigen::MatrixXd XX = X.transpose() * X;
-  // }
-  // if (!Xy) {
-  //   Eigen::VectorXd Xy = X.transpose() * y;
-  // }
 
   // normal lasso shooting
   if (!sqrtLasso) {
-
-    // check if starting values are provided
-    // computes ridge regression otherwise
-    // if (!startingValues) {
-    //   MatrixXd L = MatrixXd::Identity(p, p) * lambd;
-    //   VectorXd beta = (XX + L * psi.diagonal()).inverse() * Xy;
-    //
-    // } else {
-    //   VectorXd beta = startingValues;
-    // }
 
     XX *= 2, Xy *= 2;
     // loop over max iter
