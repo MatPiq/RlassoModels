@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import numpy.linalg as la
 import scipy.stats as st
-import solver.solver_fast as solver
+import solver_fast as solver
 from patsy import dmatrices
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
