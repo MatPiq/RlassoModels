@@ -12,3 +12,4 @@ This is an example on how to document the API of your own project.
 
    Rlasso
    RlassoLogit
+   lasso_shooting
