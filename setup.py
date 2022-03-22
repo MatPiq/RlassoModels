@@ -10,7 +10,7 @@ __version__ = "0.0.1"
 
 ext_modules = [
     Pybind11Extension(
-        "sover_fast",
+        "solver_fast",
         sorted(glob("rlassopy/*.cpp")),
         include_dirs=[pybind11.get_include(), "extern/eigen-3.4.0"],
         define_macros=[("VERSION_INFO", __version__)],
