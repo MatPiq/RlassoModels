@@ -2,10 +2,10 @@ import cvxpy as cp
 import numpy as np
 import numpy.linalg as la
 import scipy.stats as st
+import solver.solver_fast as solver
 from patsy import dmatrices
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
-from solver import lasso_shooting
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
@@ -114,7 +114,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.fit_intercept = fit_intercept
         self.cov_type = cov_type
         self.x_dependent = x_dependent
-        self.lasso_psi = lasso_psi
         self.n_corr = n_corr
         self.max_iter = max_iter
         self.max_iter_shooting = max_iter_shooting
@@ -304,24 +303,25 @@ class Rlasso(BaseEstimator, RegressorMixin):
         XX = X.T @ X
         Xy = X.T @ y
 
-        # sqrt used for homoscedastic is one-step estimator
-        if self.sqrt and self.cov_type == "nonrobust":
+        # sqrt used under homoscedastic is one-step estimator
+        if self.sqrt and self.cov_type == "nonrobust" and not self.x_dependent:
 
-            lambd = self._lambd_calc(n=n, p=p, X=X)
             psi = self._psi_calc(X, n)
+            lambd = self._lambd_calc(n=n, p=p, X=X)
             # use
-            beta_ridge = la.solve(XX + lambd * np.diag(psi**2), Xy)
-            beta = lasso_shooting(
+            beta_ridge = la.solve(XX * n * 2 + lambd * np.diag(psi), Xy * n * 2)
+
+            beta = solver.lasso_shooting(
                 X=X,
                 y=y,
+                XX=XX,
+                Xy=Xy,
                 lambd=lambd,
                 psi=psi,
+                starting_values=beta_ridge,
                 sqrt=self.sqrt,
                 max_iter=self.max_iter_shooting,
                 opt_tol=self.opt_tol,
-                zero_tol=self.zero_tol,
-                XX=XX,
-                Xy=Xy,
             )
 
             return {"beta": beta, "lambd": lambd, "psi": psi, "n_iter": 0}
@@ -335,68 +335,75 @@ class Rlasso(BaseEstimator, RegressorMixin):
         beta0 = np.linalg.inv(X_top.T @ X_top) @ X_top.T @ y
 
         v = y - X_top @ beta0
-        s1 = np.sqrt(np.mean(v**2))
+        s0 = np.sqrt(np.mean(v**2))
 
         psi = self._psi_calc(X=X, v=v, n=n)
-        lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
+        lambd = self._lambd_calc(n=n, p=p, v=v, s1=s0, X=X, psi=psi)
 
-        if self.max_iter == 0:
-            beta = lasso_shooting(
+        # get starting values
+        if self.sqrt:
+            beta_ridge = la.solve(XX * n * 2 + lambd * np.diag(psi), Xy * n * 2)
+        else:
+            beta_ridge = la.solve(XX + lambd * np.diag(psi), Xy)
+
+        # if self.max_iter == 0:
+        #     beta = lasso_shooting(
+        #         X=X,
+        #         y=y,
+        #         lambd=lambd,
+        #         psi=psi,
+        #         sqrt=self.sqrt,
+        #         max_iter=self.max_iter_shooting,
+        #         opt_tol=self.opt_tol,
+        #         zero_tol=self.zero_tol,
+        #         XX=XX,
+        #         Xy=Xy,
+        #     )
+        #
+        #     if self.post:
+        #         beta = self._post_lasso(beta, X, y)
+        #
+        #     return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": self.max_iter}
+        #
+        # else:
+
+        for k in range(self.max_iter + 1):
+
+            s1 = s0
+
+            beta = solver.lasso_shooting(
                 X=X,
                 y=y,
+                XX=XX,
+                Xy=Xy,
                 lambd=lambd,
                 psi=psi,
+                starting_values=beta_ridge,
                 sqrt=self.sqrt,
                 max_iter=self.max_iter_shooting,
                 opt_tol=self.opt_tol,
-                zero_tol=self.zero_tol,
-                XX=XX,
-                Xy=Xy,
             )
+            # obtain residuals
+            # if not self.lasso_psi:
+            #     beta = self._post_lasso(beta, X, y)
+            #     v = y - X @ beta
+            # else:
 
+            # error refinement
             if self.post:
                 beta = self._post_lasso(beta, X, y)
+            v = y - X @ beta
 
-            return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": self.max_iter}
+            s1 = np.sqrt(np.mean(v**2))
 
-        else:
+            # change in RMSE, check convergence
+            if np.abs(s1 - s0) < self.conv_tol:
+                break
 
-            for k in range(1, self.max_iter + 1):
+            psi = self._psi_calc(X=X, v=v, n=n)
+            lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
 
-                s0 = s1
-
-                beta = lasso_shooting(
-                    X=X,
-                    y=y,
-                    lambd=lambd,
-                    psi=psi,
-                    sqrt=self.sqrt,
-                    max_iter=self.max_iter,
-                    opt_tol=self.opt_tol,
-                    zero_tol=self.zero_tol,
-                    XX=XX,
-                    Xy=Xy,
-                )
-                # obtain residuals
-                if not self.lasso_psi:
-                    beta = self._post_lasso(beta, X, y)
-                    v = y - X @ beta
-                else:
-                    v = y - X @ beta
-
-                s1 = np.sqrt(np.mean(v**2))
-
-                if self.post:
-                    beta = self._post_lasso(beta, X, y)
-
-                # change in RMSE, check convergence
-                if np.abs(s1 - s0) < self.conv_tol:
-                    break
-
-                psi = self._psi_calc(X=X, v=v, n=n)
-                lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
-
-            return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k}
+        return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k}
 
     def fit(self, X, y):
         """

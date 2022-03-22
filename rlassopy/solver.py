@@ -55,9 +55,13 @@ def lasso_shooting(
 
     if XX is None:
         XX = X.T @ X
+    else:
+        XX = XX.copy()
 
     if Xy is None:
         Xy = X.T @ y
+    else:
+        Xy = Xy.copy()
 
     if beta_start is None:
         # ridge regression
@@ -74,7 +78,7 @@ def lasso_shooting(
         Xy /= n
         # calc residuals
         v = y - X @ beta
-        mse = v.T @ v / n
+        mse = np.mean(v**2)
 
     else:
         XX *= 2
