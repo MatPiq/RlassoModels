@@ -2,3 +2,8 @@ scikit-learn
 scipy
 numpy
 pybind11
+sphinx 
+sphinx-gallery
+sphinx_rtd_theme
+numpydoc 
+matplotlib
