@@ -18,6 +18,10 @@ ext_modules = [
         extra_compile_args=cpp_args,
     ),
 ]
+extra_requires = {
+    "tests": ["pytest", "pytest-cov"],
+    "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
+}
 
 setup(
     name="rlassopy",
@@ -28,7 +32,7 @@ setup(
     description="Rigorous Lasso in Python",
     long_description="",
     ext_modules=ext_modules,
-    install_requires=["numpy", "scipy"],
-    extras_require={"test": "pytest"},
+    install_requires=["numpy", "scipy", "sklearn"],
+    extras_require=extra_requires,
     zip_safe=False,
 )
