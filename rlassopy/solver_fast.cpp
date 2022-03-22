@@ -4,11 +4,11 @@
 // ['/users/matiaspiqueras/eigen'] setup_pybind11(cfg)
 // %>
 // Created by matias on 10/11/19.
-#include <pybind11/pybind11.h>
-#include <pybind11/eigen.h>
 #include <Eigen/Eigen>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <iostream>
+#include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
 #include <math.h>
 
 namespace py = pybind11;
