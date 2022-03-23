@@ -6,7 +6,7 @@ dependencies:
   # readthedocs requirements
   - python=3.8
   - pip>=20.1
-  - pybind11
+  - pybind11-global
   - scikit-build
   # rlassopy requirements
   - numpy
