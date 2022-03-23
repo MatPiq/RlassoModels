@@ -5,8 +5,11 @@ channels:
 dependencies:
   # readthedocs requirements
   - python=3.8
+  - cmake
+  - compilers
   - pip>=20.1
   - pybind11-global
+  - pybind11
   - scikit-build
   # rlassopy requirements
   - numpy
