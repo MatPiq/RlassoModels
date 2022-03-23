@@ -12,3 +12,10 @@ This is an example on how to document the API of your own project.
 
    Rlasso
    RlassoLogit
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+   Rlasso
+   RlassoLogit
+   lasso_shooting

@@ -23,6 +23,10 @@ import sphinx_rtd_theme
 sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("../examples"))
 
+# Add modules to be mocked to prevent dependency on external libraries
+# (see: https://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules)
+autodoc_mock_imports = ["solver_fast", "pybind11", "Eigen"]
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
