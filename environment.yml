@@ -1,5 +1,9 @@
-name: project-template
+name: rlassopy
+channels:
+- conda-forge
+- defaults
 dependencies:
+  - pybind11
   - numpy
   - scipy
   - scikit-learn
