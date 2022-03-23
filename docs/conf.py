@@ -21,11 +21,12 @@ import sphinx_rtd_theme
 
 # Add to sys.path the top-level directory where the package is located.
 sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("../examples"))
 
 # Add modules to be mocked to prevent dependency on external libraries
 # (see: https://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules)
-autodoc_mock_imports = ["rlassopy"]
+# autodoc_mock_imports = ["rlassopy"]
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
