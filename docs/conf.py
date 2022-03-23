@@ -27,7 +27,10 @@ sys.path.insert(0, os.path.abspath("../examples"))
 # Add modules to be mocked to prevent dependency on external libraries
 # (see: https://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules)
 # autodoc_mock_imports = ["rlassopy"]
-
+if getenv("READTHEDOCS") == "True":
+    # readthedocs.io forbids byte-compilation of C-binaries
+    # we've got to mock them :(
+    autodoc_mock_imports = ["rlassopy.solver_fast"]
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
