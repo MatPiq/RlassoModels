@@ -13,4 +13,5 @@ setuptools==51.3.3
 numpy>=1.19.1
 scipy>=1.5.2
 scikit-learn>=0.22.1
-pybind11-global==2.6.1
+pybind11-global>=2.6.1
+pybind11
