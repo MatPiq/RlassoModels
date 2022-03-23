@@ -10,8 +10,8 @@ build:
   os: ubuntu-20.04
   # apt_packages:
   #   - libeigen3-dev
-  # tools:
-  #   python: "3.9"
+  tools:
+    python: "3.8"
     # You can also specify other tool versions:
     # nodejs: "16"
     # rust: "1.55"
