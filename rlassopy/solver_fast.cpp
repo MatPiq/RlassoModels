@@ -1,7 +1,7 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/eigen.h>
 #include <Eigen/Eigen>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
 #include <iostream>
 #include <math.h>
 
