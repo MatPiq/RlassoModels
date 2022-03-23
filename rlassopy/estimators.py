@@ -202,6 +202,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
         # adjust for intercept
         if self.fit_intercept:
             p = p - 1
+            if self.x_dependent:
+                X = X[:, 1:]
+                psi = psi[1:, 1:]
 
         if self.sqrt:
             lasso_factor = self.c
@@ -271,10 +274,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
             elif self.cov_type == "robust" and self.x_dependent:
                 sims = np.empty(self.n_sim)
                 Xpsi = X @ np.linalg.inv(psi)
-                v = v.reshape(-1, 1)  # reshape to column vector
                 for r in range(self.n_sim):
                     g = np.random.normal(size=(n, 1))
-                    sims[r] = np.max(np.abs(np.sum(Xpsi * v * g, axis=0)))
+                    sims[r] = np.max(np.abs(np.sum(Xpsi * v[:, None] * g, axis=0)))
 
                 lambd = lasso_factor * np.quantile(sims, 1 - self.gamma)
 
@@ -382,12 +384,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
         for k in range(self.max_iter):
 
             s0 = s1
-
-            # obtain residuals
-            # if not self.lasso_psi:
-            #     beta = self._post_lasso(beta, X, y)
-            #     v = y - X @ beta
-            # else:
 
             # error refinement
             if not self.lasso_psi:
