@@ -20,10 +20,9 @@ import sphinx_gallery
 import sphinx_rtd_theme
 
 # Add to sys.path the top-level directory where the package is located.
-# sys.path.insert(0, os.path.abspath(".."))
-# sys.path.insert(0, os.path.abspath("../examples"))
-# sys.path.insert(0, os.path.abspath("../rlassopy"))
-# sys.path.append(os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../examples"))
+sys.path.append(os.path.abspath("../.."))
 
 # Add modules to be mocked to prevent dependency on external libraries
 # (see: https://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules)
