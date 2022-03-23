@@ -115,6 +115,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.cov_type = cov_type
         self.x_dependent = x_dependent
         self.n_corr = n_corr
+        self.lasso_psi = lasso_psi
         self.max_iter = max_iter
         self.max_iter_shooting = max_iter_shooting
         self.n_sim = n_sim
@@ -162,6 +163,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
                     "Cluster robust loadings not \
                                             implemented"
                 )
+        # constant should be unpenalized
+        if self.fit_intercept:
+            psi[0] = 0.0
 
         return psi
 
@@ -194,6 +198,10 @@ class Rlasso(BaseEstimator, RegressorMixin):
         #     raise ValueError("X must be provided for x_dependent")
         if psi is not None:
             psi = np.diag(psi)
+
+        # adjust for intercept
+        if self.fit_intercept:
+            p = p - 1
 
         if self.sqrt:
             lasso_factor = self.c
@@ -279,6 +287,14 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         return lambd
 
+    def _starting_values(self, XX, Xy, n, lambd, psi):
+        """Calculate starting values for the lasso."""
+        if self.sqrt:
+            beta_ridge = la.solve(XX * n * 2 + lambd * np.diag(psi), Xy * n * 2)
+        else:
+            beta_ridge = la.solve(XX + lambd * np.diag(psi), Xy)
+        return beta_ridge
+
     @staticmethod
     def _post_lasso(beta, X, y):
         """Run post-lasso/OLS on the lasso coefficients."""
@@ -299,6 +315,14 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if self.gamma is None:
             self.gamma = 0.1 / np.log(n)
 
+        # intercept handling
+        if self.fit_intercept:
+            X = np.c_[np.ones(n), X]
+            p += 1
+            corr_range = np.arange(1, p)
+        else:
+            corr_range = np.arange(p)
+
         # precompute XX and Xy
         XX = X.T @ X
         Xy = X.T @ y
@@ -309,7 +333,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
             psi = self._psi_calc(X, n)
             lambd = self._lambd_calc(n=n, p=p, X=X)
             # use
-            beta_ridge = la.solve(XX * n * 2 + lambd * np.diag(psi), Xy * n * 2)
+            beta_ridge = self._starting_values(XX, Xy, n, lambd, psi)
 
             beta = solver.lasso_shooting(
                 X=X,
@@ -328,61 +352,37 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         # calculate initial residuals based on top correlation
         r = np.empty(p)
-        for k in range(p):
+        for k in corr_range:
             r[k] = np.abs(st.pearsonr(X[:, k], y)[0])
 
         X_top = X[:, np.argsort(r)[-self.n_corr :]]
         beta0 = np.linalg.inv(X_top.T @ X_top) @ X_top.T @ y
 
         v = y - X_top @ beta0
-        s0 = np.sqrt(np.mean(v**2))
+        s1 = np.sqrt(np.mean(v**2))
 
         psi = self._psi_calc(X=X, v=v, n=n)
-        lambd = self._lambd_calc(n=n, p=p, v=v, s1=s0, X=X, psi=psi)
+        lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
+        beta_ridge = self._starting_values(XX, Xy, n, lambd, psi)
 
-        # get starting values
-        if self.sqrt:
-            beta_ridge = la.solve(XX * n * 2 + lambd * np.diag(psi), Xy * n * 2)
-        else:
-            beta_ridge = la.solve(XX + lambd * np.diag(psi), Xy)
+        # run shooting algorithm
+        beta = solver.lasso_shooting(
+            X=X,
+            y=y,
+            XX=XX,
+            Xy=Xy,
+            lambd=lambd,
+            psi=psi,
+            starting_values=beta_ridge,
+            sqrt=self.sqrt,
+            max_iter=self.max_iter_shooting,
+            opt_tol=self.opt_tol,
+        )
 
-        # if self.max_iter == 0:
-        #     beta = lasso_shooting(
-        #         X=X,
-        #         y=y,
-        #         lambd=lambd,
-        #         psi=psi,
-        #         sqrt=self.sqrt,
-        #         max_iter=self.max_iter_shooting,
-        #         opt_tol=self.opt_tol,
-        #         zero_tol=self.zero_tol,
-        #         XX=XX,
-        #         Xy=Xy,
-        #     )
-        #
-        #     if self.post:
-        #         beta = self._post_lasso(beta, X, y)
-        #
-        #     return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": self.max_iter}
-        #
-        # else:
+        for k in range(self.max_iter):
 
-        for k in range(self.max_iter + 1):
+            s0 = s1
 
-            s1 = s0
-
-            beta = solver.lasso_shooting(
-                X=X,
-                y=y,
-                XX=XX,
-                Xy=Xy,
-                lambd=lambd,
-                psi=psi,
-                starting_values=beta_ridge,
-                sqrt=self.sqrt,
-                max_iter=self.max_iter_shooting,
-                opt_tol=self.opt_tol,
-            )
             # obtain residuals
             # if not self.lasso_psi:
             #     beta = self._post_lasso(beta, X, y)
@@ -390,20 +390,35 @@ class Rlasso(BaseEstimator, RegressorMixin):
             # else:
 
             # error refinement
-            if self.post:
+            if not self.lasso_psi:
                 beta = self._post_lasso(beta, X, y)
             v = y - X @ beta
-
             s1 = np.sqrt(np.mean(v**2))
 
-            # change in RMSE, check convergence
+            # get new estimates
+            psi = self._psi_calc(X=X, v=v, n=n)
+            lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
+            beta = solver.lasso_shooting(
+                X=X,
+                y=y,
+                XX=XX,
+                Xy=Xy,
+                lambd=lambd,
+                psi=psi,
+                starting_values=beta,
+                sqrt=self.sqrt,
+                max_iter=self.max_iter_shooting,
+                opt_tol=self.opt_tol,
+            )
+
             if np.abs(s1 - s0) < self.conv_tol:
                 break
 
-            psi = self._psi_calc(X=X, v=v, n=n)
-            lambd = self._lambd_calc(n=n, p=p, v=v, s1=s1, X=X, psi=psi)
+        # end of algorithm
+        if self.post:
+            beta = self._post_lasso(beta, X, y)
 
-        return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k}
+        return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k + 1}
 
     def fit(self, X, y):
         """
@@ -426,6 +441,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
         X, y = check_X_y(X, y)
 
         res = self._fit(X, y)
+        if self.fit_intercept:
+            self.intercept_ = res["beta"][0]
+            self.coef_ = res["beta"][1:]
+        else:
+            self.coef_ = res["beta"]
+            self.intercept_ = 0
 
         self.coef_ = res["beta"]
         self.psi_ = res["psi"]
@@ -492,10 +513,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         check_is_fitted(self, ["coef_"])
         X = check_array(X)
 
-        pred = X @ self.coef_
-
-        if hasattr(self, "intercept_"):
-            pred += self.intercept_
+        pred = self.intercept_ + X @ self.coef_
 
         return pred
 
