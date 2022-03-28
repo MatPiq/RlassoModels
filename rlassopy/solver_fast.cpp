@@ -2,39 +2,42 @@
 // https://github.com/statalasso/lassopack/blob/master/lassoutils.ado
 //
 #include "../extern/eigen-3.4.0/Eigen/Eigen"
-#include "../extern/eigen-3.4.0/unsupported/Eigen/MatrixFunctions"
+// #include "../extern/eigen-3.4.0/unsupported/Eigen/MatrixFunctions"
 
 #include <iostream>
 #include <math.h>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
-// #include <Eigen/Eigen>
+#include <Eigen/Eigen>
 // #include <unsupported/Eigen/MatrixFunctions>
 
 namespace py = pybind11;
-
 using namespace Eigen;
 using namespace std;
+// using MatrixXdRef = Eigen::Ref<Eigen::MatrixXd>;
+// using VectorXdRef = Eigen::Ref<Eigen::VectorXd>;
+using MatrixXdRef = Eigen::MatrixXd;
+using VectorXdRef = Eigen::VectorXd;
 
-VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
-                       double lambd, VectorXd psi, VectorXd startingValues,
+
+VectorXd lassoShooting(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef Xy,
+                       double lambd, VectorXdRef psi, VectorXdRef startingValues,
                        bool sqrtLasso = false, bool fitIntercept = true,
                        double optTol = 1e-10, int maxIter = 1000,
                        double zeroTol = 1e-4) {
 
   int n = X.rows(), p = X.cols();
-  int iter = 0;
  
   VectorXd beta = startingValues;
   
-  // VectorXd sdVec = X.colwise().squaredNorm().sqrt();
-  // double ySd = sqrt(y.squaredNorm());
+  VectorXd sdVec = X.colwise().norm();
+  double ySd = y.norm();
   // normal lasso shooting
   if (!sqrtLasso) {
 
     XX *= 2, Xy *= 2;
     // loop over max iter
-    for (iter = 0; iter < maxIter; iter++) {
+    for (int iter = 0; iter < maxIter; iter++) {
       // copy beta to beta_old
       VectorXd betaOld = beta;
       // loop over p
@@ -53,8 +56,8 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
         }
       }
       // check for convergence
-      // double diff = ((beta - betaOld).cwiseAbs() * sdVec / ySd).sum();
-      double diff = (beta - betaOld).cwiseAbs().sum();
+      double diff = ((beta - betaOld).cwiseAbs() * sdVec / ySd).sum();
+      // double diff = (beta - betaOld).cwiseAbs().sum();
       if (diff < optTol) {
         break;
       }
@@ -81,8 +84,9 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
     double qhat = error.squaredNorm() / n;
 
     
-    for (iter = 0; iter < maxIter; iter++) {
+    for (int iter = 0; iter < maxIter; iter++) {
       VectorXd betaOld = beta;
+
       for (int j = 0; j < p; j++) {
 
         if (fabs(beta(j)) > 0) {
@@ -112,7 +116,7 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
                          sqrt(qqhat) -
                      S0) /
                     XX(j, j);
-          error = -X.col(j) * beta(j);
+          error -= X.col(j) * beta(j);
         }
 
         else {
@@ -135,11 +139,11 @@ VectorXd lassoShooting(MatrixXd X, VectorXd y, MatrixXd XX, VectorXd Xy,
       }
       
       // check for convergence
-      double diff = (beta - betaOld).cwiseAbs().sum();
-      // double diff = ((beta - betaOld).cwiseAbs() * (sdVec / ySd)).sum();
+      // double diff = (beta - betaOld).cwiseAbs().sum();
+      double diff = ((beta - betaOld).cwiseAbs() * (sdVec / ySd)).sum();
       if (diff < optTol) {
-        if ((fobj - dual)  < 1e-6) {
-        // if ((fobj - dual) / ySd < optTol) {
+        // if ((fobj - dual)  < 1e-6) {
+        if ((fobj - dual) / ySd < optTol) {
           break;
         }
       }
