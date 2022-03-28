@@ -5,17 +5,17 @@ import numpy.linalg as la
 def lasso_shooting(
     X,
     y,
+    XX,
+    Xy,
     lambd,
     psi,
+    starting_values,
     *,
     sqrt=False,
-    intercept=False,
+    fit_intercept=True,
     max_iter=1000,
     opt_tol=1e-10,
     zero_tol=1e-4,
-    beta_start=None,
-    XX=None,
-    Xy=None,
 ):
     """
     Lasso Shooting algorithm for and sqrt lasso.
@@ -35,7 +35,7 @@ def lasso_shooting(
         beta = min ||(y - X @ beta)||_2^2 + lambd ||psi @ beta||_1
     max_iter : int, optional, default: 1000
         Maximum number of iterations.
-    opt_tol : float, optional, default: 1e-5
+    opt_tol : float, optional, default: 1e-10
         Optimality tolerance.
     zero_tol : float, optional, default: 1e-4
         Zero tolerance.
@@ -52,98 +52,99 @@ def lasso_shooting(
     #     return np.sign(x) * np.maximum(np.abs(x) - y, 0)
 
     n, p = X.shape
+    beta = starting_values.copy()
 
-    if XX is None:
-        XX = X.T @ X
-    else:
-        XX = XX.copy()
+    if not sqrt:
 
-    if Xy is None:
-        Xy = X.T @ y
-    else:
-        Xy = Xy.copy()
-
-    if beta_start is None:
-        # ridge regression
-        if sqrt:
-            beta = la.solve(XX * n * 2 + lambd * np.diag(psi**2), Xy * n * 2)
-        else:
-            beta = la.solve(XX + lambd * np.diag(psi**2), Xy)
-        # beta = la.inv(XX) @ Xy
-    else:
-        beta = beta_start
-
-    if sqrt:
-        XX /= n
-        Xy /= n
-        # calc residuals
-        v = y - X @ beta
-        mse = np.mean(v**2)
-
-    else:
         XX *= 2
         Xy *= 2
 
-    for _ in range(max_iter):
+        for _ in range(max_iter):
+            beta_old = beta.copy()
 
-        beta_old = beta.copy()
+            for j in range(p):
+                S0 = np.sum(XX[j, :] * beta) - XX[j, j] * beta[j] - Xy[j]
 
-        for j in range(p):
-            s0 = np.sum(XX[j, :] * beta) - XX[j, j] * beta[j] - Xy[j]
+                if S0 > (lambd * psi[j]):
+                    beta[j] = (lambd * psi[j] - S0) / XX[j, j]
 
-            # TODO: Finish sqrt lasso
-            # sqrt lasso
-            if sqrt:
+                elif S0 < (-lambd * psi[j]):
+                    beta[j] = (-lambd * psi[j] - S0) / XX[j, j]
+
+                else:
+                    beta[j] = 0
+
+            if np.sum(np.abs(beta - beta_old)) < opt_tol:
+                break
+
+    else:
+        XX /= n
+        Xy /= n
+
+        # demean X and y
+        if fit_intercept:
+            X -= np.mean(X, axis=0)
+            y -= np.mean(y)
+
+        error = y - X @ beta
+        qhat = np.sum(error**2) / n
+
+        for _ in range(max_iter):
+            beta_old = beta.copy()
+
+            for j in range(p):
+                S0 = np.sum(XX[j, :] * beta) - XX[j, j] * beta[j] - Xy[j]
+
+                # TODO: Finish sqrt lasso
+                # sqrt lasso
                 if np.abs(beta[j]) > 0:
-                    v += X[:, j] * beta[j]
-                    mse = np.mean(v**2)
+                    error += X[:, j] * beta[j]
+                    qhat = np.mean(error**2)
 
                 if n**2 < (lambd * psi[j]) ** 2 / XX[j, j]:
                     beta[j] = 0
 
-                elif s0 > lambd / (n * psi[j] * np.sqrt(mse)):
+                elif S0 > lambd / (n * psi[j] * np.sqrt(qhat)):
                     beta[j] = (
                         (
                             lambd
                             * psi[j]
                             / np.sqrt(n**2 - (lambd * psi[j]) ** 2 / XX[j, j])
                         )
-                        * np.sqrt(np.max((mse - (s0**2 / XX[j, j]), 0)))
-                        - s0
+                        * np.sqrt(np.max((qhat - (S0**2 / XX[j, j]), 0)))
+                        - S0
                     ) / XX[j, j]
-                    v -= X[:, j] * beta[j]
+                    error -= X[:, j] * beta[j]
 
-                elif s0 < -lambd / (n * psi[j] * np.sqrt(mse)):
+                elif S0 < -lambd / (n * psi[j] * np.sqrt(qhat)):
                     beta[j] = (
                         -(
                             lambd
                             * psi[j]
                             / np.sqrt(n**2 - (lambd * psi[j]) ** 2 / XX[j, j])
                         )
-                        * np.sqrt(np.max((mse - (s0**2 / XX[j, j]), 0)))
-                        - s0
+                        * np.sqrt(np.max((qhat - (S0**2 / XX[j, j]), 0)))
+                        - S0
                     ) / XX[j, j]
-                    v -= X[:, j] * beta[j]
+                    error -= X[:, j] * beta[j]
 
                 else:
                     beta[j] = 0
+            # end of loop over j
+            error_norm = np.sqrt(np.sum((y - X @ beta) ** 2))
+            fobj = error_norm / np.sqrt(n) + (lambd / n) * np.dot(psi, np.abs(beta))
 
-            # lasso
+            if error_norm > 1e-10:
+                aaa = np.sqrt(n) * (error / error_norm)
+                bbb = np.abs(lambd / n * psi - np.abs(X.T @ aaa / n)).T @ np.abs(beta)
+                dual = aaa.transpose() @ (y / n) - bbb
             else:
-                # compute the shoot and update beta
+                dual = (lambd / n) * np.dot(psi, np.abs(beta))
 
-                if s0 > (lambd * psi[j]):
-                    beta[j] = (lambd * psi[j] - s0) / XX[j, j]
-
-                elif s0 < (-lambd * psi[j]):
-                    beta[j] = (-lambd * psi[j] - s0) / XX[j, j]
-
-                else:
-                    beta[j] = 0
-
-        # Check for convergence
-        if la.norm(beta - beta_old) < opt_tol:
-            break
+            diff = np.sum(np.abs(beta - beta_old))
+            if diff < opt_tol:
+                if (fobj - dual) < 1e-6:
+                    break
 
     # set coefficients to zero if below zero tolerance
     beta[abs(beta) < zero_tol] = 0
