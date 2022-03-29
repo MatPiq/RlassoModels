@@ -25,7 +25,7 @@ __version__ = "0.0.1"
 #     "-fPIC",
 #     "-DNDEBUG",
 #     "-DEIGEN_USE_BLAS",
-#     # "-lopenblas",
+#     "-lopenblas",
 # ]
 # compargs = [
 #     "-Ofast",
@@ -36,7 +36,7 @@ __version__ = "0.0.1"
 #     "-std=c++17",
 #     "-DNDEBUG",
 #     "-DEIGEN_USE_BLAS",
-#     # "-lopenblas",
+#     "-lopenblas",
 # ]
 
 
@@ -108,7 +108,7 @@ ext_modules = [
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
-            os.environ.get("EIGEN_INCLUDE_DIR", "extern/eigen-3.4.0"),
+            os.environ.get("EIGEN3_INCLUDE_DIR", "extern/eigen-3.4.0"),
             # get_eigen_include(),
         ],
         language="c++",
