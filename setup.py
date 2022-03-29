@@ -61,7 +61,7 @@ ext_modules = [
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
-            "extern/eigen-3.4.0",
+            Path(__file__).resolve() / "extern/eigen-3.4.0",
         ],
         define_macros=[("VERSION_INFO", __version__)],
     ),
