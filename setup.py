@@ -42,7 +42,7 @@ __version__ = "0.0.1"
 
 class get_eigen_include(object):
     EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip"
-    EIGEN3_DIRNAME = "eigen-3.4.0"
+    EIGEN3_DIRNAME = "extern/eigen-3.4.0"
 
     def __str__(self) -> str:
         eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
