@@ -42,7 +42,7 @@ __version__ = "0.0.1"
 
 class get_eigen_include(object):
     EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip"
-    EIGEN3_DIRNAME = "extern/eigen-3.4.0"
+    EIGEN3_DIRNAME = "eigen-3.4.0"
 
     def __str__(self) -> str:
         eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
@@ -54,20 +54,20 @@ class get_eigen_include(object):
         if target_dir.exists():
             return target_dir.name
 
-        # download_target_dir = SETUP_DIRECTORY / "eigen3.zip"
-        # import zipfile
-        #
-        # import requests
-        #
-        # response = requests.get(self.EIGEN3_URL, stream=True)
-        # with download_target_dir.open("wb") as ofs:
-        #     for chunk in response.iter_content(chunk_size=1024):
-        #         ofs.write(chunk)
-        #
-        # with zipfile.ZipFile(download_target_dir) as ifs:
-        #     ifs.extractall()
-        #
-        # return target_dir.name
+        download_target_dir = SETUP_DIRECTORY / "eigen3.zip"
+        import zipfile
+
+        import requests
+
+        response = requests.get(self.EIGEN3_URL, stream=True)
+        with download_target_dir.open("wb") as ofs:
+            for chunk in response.iter_content(chunk_size=1024):
+                ofs.write(chunk)
+
+        with zipfile.ZipFile(download_target_dir) as ifs:
+            ifs.extractall()
+
+        return target_dir.name
 
 
 class get_pybind_include(object):
