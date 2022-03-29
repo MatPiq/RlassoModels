@@ -118,7 +118,7 @@ extra_requires = {
     # "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
 }
 
-install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy"]
+install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy", "patsy"]
 
 setup(
     name="rlassopy",
