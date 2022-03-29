@@ -100,7 +100,6 @@ class get_pybind_include(object):
 # ]
 
 cpp_args = ["-std=c++14"]
-
 ext_modules = [
     Extension(
         "solver_fast",
@@ -108,7 +107,7 @@ ext_modules = [
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
-            os.environ.get("EIGEN3_INCLUDE_DIR", "extern/eigen-3.4.0"),
+            os.environ.get("EIGEN3_INCLUDE_DIR", "../extern/eigen-3.4.0"),
             # get_eigen_include(),
         ],
         language="c++",
