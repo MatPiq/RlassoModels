@@ -6,7 +6,8 @@ from pathlib import Path
 import pybind11
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import Extension, setup
-from skbuild import setup
+
+# from skbuild import setup
 
 SETUP_DIRECTORY = Path(__file__).resolve().parent
 
