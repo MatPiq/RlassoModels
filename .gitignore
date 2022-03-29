@@ -7,6 +7,9 @@ __pycache__/
 # C extensions
 *.so
 .ccls-cache/
+eigen.zip
+eigen-3.4.0/
+docs/_build/
 
 # scikit-learn specific
 doc/_build/
