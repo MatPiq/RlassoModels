@@ -5,6 +5,7 @@ requires = [
   "pybind11",
   "requests",
   "setuptools_scm",
+  "skbuild",
 ]
 
 build-backend = "setuptools.build_meta"
