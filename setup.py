@@ -40,8 +40,8 @@ __version__ = "0.0.1"
 
 
 class get_eigen_include(object):
-    EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
-    EIGEN3_DIRNAME = "eigen-3.3.7"
+    EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip"
+    EIGEN3_DIRNAME = "eigen-3.4.0"
 
     def __str__(self) -> str:
         eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
@@ -115,10 +115,10 @@ ext_modules = [
 ]
 extra_requires = {
     "tests": ["pytest", "pytest-cov"],
-    "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
+    # "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
 }
 
-install_requires = ["numpy", "scipy", "scikit-learn"]
+install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy"]
 
 setup(
     name="rlassopy",

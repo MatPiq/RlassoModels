@@ -3,7 +3,6 @@ requires = [
   "setuptools>=42",
   "wheel",
   "pybind11",
-  "scikit-build",
   "requests",
   "setuptools_scm",
 ]
