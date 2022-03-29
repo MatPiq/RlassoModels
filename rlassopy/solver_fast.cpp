@@ -1,15 +1,12 @@
 // adapted from lassopack, see:
 // https://github.com/statalasso/lassopack/blob/master/lassoutils.ado
-//
-#include "../extern/eigen-3.4.0/Eigen/Eigen"
-// #include "../extern/eigen-3.4.0/unsupported/Eigen/MatrixFunctions"
 
+// #include "../extern/eigen-3.4.0/Eigen/Eigen"
 #include <iostream>
 #include <math.h>
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <Eigen/Eigen>
-// #include <unsupported/Eigen/MatrixFunctions>
 
 namespace py = pybind11;
 using namespace Eigen;
@@ -69,10 +66,8 @@ VectorXd lassoShooting(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef
     Xy /= n;
     double MaxErrorNorm = 1.0e-10;
 
-    // get means of X and y for intercept handling
+    // demean X and y
     if (fitIntercept) {
-      // deamean X and y
-      // repeat for n rows
       MatrixXd meanX = X.colwise().mean().replicate(n, 1);
       VectorXd meanY = VectorXd::Ones(n) * y.mean();
       X = X - meanX;
