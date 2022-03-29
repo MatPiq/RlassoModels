@@ -54,20 +54,20 @@ class get_eigen_include(object):
         if target_dir.exists():
             return target_dir.name
 
-        download_target_dir = SETUP_DIRECTORY / "eigen3.zip"
-        import zipfile
-
-        import requests
-
-        response = requests.get(self.EIGEN3_URL, stream=True)
-        with download_target_dir.open("wb") as ofs:
-            for chunk in response.iter_content(chunk_size=1024):
-                ofs.write(chunk)
-
-        with zipfile.ZipFile(download_target_dir) as ifs:
-            ifs.extractall()
-
-        return target_dir.name
+        # download_target_dir = SETUP_DIRECTORY / "eigen3.zip"
+        # import zipfile
+        #
+        # import requests
+        #
+        # response = requests.get(self.EIGEN3_URL, stream=True)
+        # with download_target_dir.open("wb") as ofs:
+        #     for chunk in response.iter_content(chunk_size=1024):
+        #         ofs.write(chunk)
+        #
+        # with zipfile.ZipFile(download_target_dir) as ifs:
+        #     ifs.extractall()
+        #
+        # return target_dir.name
 
 
 class get_pybind_include(object):
@@ -107,10 +107,10 @@ ext_modules = [
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
-            os.environ.get(
-                "EIGEN3_INCLUDE_DIR", SETUP_DIRECTORY / "extern/eigen-3.4.0"
-            ),
-            # get_eigen_include(),
+            # os.environ.get(
+            #     "EIGEN3_INCLUDE_DIR", SETUP_DIRECTORY / "extern/eigen-3.4.0"
+            # ),
+            get_eigen_include(),
         ],
         language="c++",
         extra_compile_args=cpp_args,
