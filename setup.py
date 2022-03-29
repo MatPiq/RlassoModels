@@ -8,30 +8,30 @@ from skbuild import setup
 # from setuptools import Extension, setup
 __version__ = "0.0.1"
 
-linkargs = [
-    "-Ofast",
-    "-ffast-math",
-    "-lpthread",
-    "-lgomp",
-    "-fopenmp-simd",
-    "-g",
-    "-w",
-    "-fPIC",
-    "-DNDEBUG",
-    "-DEIGEN_USE_BLAS",
-    # "-lopenblas",
-]
-compargs = [
-    "-Ofast",
-    "-ffast-math",
-    "-lpthread",
-    "-lgomp",
-    "-fopenmp-simd",
-    "-std=c++17",
-    "-DNDEBUG",
-    "-DEIGEN_USE_BLAS",
-    # "-lopenblas",
-]
+# linkargs = [
+#     "-Ofast",
+#     "-ffast-math",
+#     "-lpthread",
+#     "-lgomp",
+#     "-fopenmp-simd",
+#     "-g",
+#     "-w",
+#     "-fPIC",
+#     "-DNDEBUG",
+#     "-DEIGEN_USE_BLAS",
+#     # "-lopenblas",
+# ]
+# compargs = [
+#     "-Ofast",
+#     "-ffast-math",
+#     "-lpthread",
+#     "-lgomp",
+#     "-fopenmp-simd",
+#     "-std=c++17",
+#     "-DNDEBUG",
+#     "-DEIGEN_USE_BLAS",
+#     # "-lopenblas",
+# ]
 
 
 class get_pybind_include(object):
@@ -59,8 +59,6 @@ ext_modules = [
             os.environ.get("EIGEN_INCLUDE_DIR", "extern/eigen-3.4.0"),
         ],
         define_macros=[("VERSION_INFO", __version__)],
-        extra_link_args=linkargs,
-        extra_compile_args=compargs,
     ),
 ]
 
@@ -80,6 +78,8 @@ extra_requires = {
     "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
 }
 
+install_requires = ["numpy", "scipy", "scikit-learn"]
+
 setup(
     name="rlassopy",
     version=__version__,
@@ -90,7 +90,7 @@ setup(
     long_description="",
     ext_modules=ext_modules,
     cmdclass={"build_ext": build_ext},
-    install_requires=["numpy", "scipy", "sklearn", "pybind11", "glmnet"],
+    install_requires=install_requires,
     extras_require=extra_requires,
     zip_safe=False,
 )
