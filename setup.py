@@ -3,11 +3,12 @@ import sys
 from glob import glob
 from pathlib import Path
 
-# import pybind11
-# from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import Extension, find_packages, setup
 
+# import pybind11
+# from pybind11.setup_helpers import Pybind11Extension, build_ext
 # from skbuild import setup
+
 
 SETUP_DIRECTORY = Path(__file__).resolve().parent
 
@@ -107,7 +108,8 @@ ext_modules = [
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
-            get_eigen_include(),
+            os.environ.get("EIGEN_INCLUDE_DIR", "extern/eigen-3.4.0"),
+            # get_eigen_include(),
         ],
         language="c++",
         extra_compile_args=cpp_args,
@@ -115,7 +117,6 @@ ext_modules = [
 ]
 extra_requires = {
     "tests": ["pytest", "pytest-cov"],
-    # "docs": ["sphinx", "sphinx-gallery", "sphinx_rtd_theme", "numpydoc", "matplotlib"],
 }
 
 install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy", "patsy"]
