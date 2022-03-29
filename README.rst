@@ -8,13 +8,13 @@
 .. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/coy2qqaqr1rnnt5y/branch/master?svg=true
 .. _AppVeyor: https://ci.appveyor.com/project/glemaitre/project-template
 
-.. |Codecov| image:: https://codecov.io/gh/scikit-learn-contrib/project-template/branch/master/graph/badge.svg
-.. _Codecov: https://codecov.io/gh/scikit-learn-contrib/project-template
+.. |Codecov| image:: https://codecov.io/gh/matpiq/rlassopy/branch/master/graph/badge.svg
+.. _Codecov: https://codecov.io/gh/matpiq/rlassopy
 
 .. |CircleCI| image:: https://circleci.com/gh/scikit-learn-contrib/project-template.svg?style=shield&circle-token=:circle-token
 .. _CircleCI: https://circleci.com/gh/scikit-learn-contrib/project-template/tree/master
 
-.. |ReadTheDocs| image:: https://readthedocs.org/projects/sklearn-template/badge/?version=latest
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/rlassopy/badge/?version=latest
 .. _ReadTheDocs: https://rlassopy.readthedocs.io/en/latest/?badge=latest
 
 
