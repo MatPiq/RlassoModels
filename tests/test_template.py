@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.datasets import load_iris
 
-from rlassopy import Rlasso, RlassoLogit
+from rlassopy import Rlasso
 
 
 @pytest.fixture
@@ -15,11 +15,11 @@ def test_template_estimator(data):
     est = Rlasso()
     assert est.cov_type == "nonrobust"
 
-    # est.fit(*data)
-    # assert hasattr(est, "is_fitted_")
-    #
-    # X = data[0]
-    # y_pred = est.predict(X)
+    est.fit(*data)
+    assert hasattr(est, "coef_")
+
+    X = data[0]
+    est.predict(X)
     # assert_array_equal(y_pred, np.ones(X.shape[0], dtype=np.int64))
 
 

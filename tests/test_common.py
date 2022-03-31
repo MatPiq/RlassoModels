@@ -1,9 +1,9 @@
 import pytest
 from sklearn.utils.estimator_checks import check_estimator
 
-from rlassopy import Rlasso, RlassoLogit
+from rlassopy import Rlasso
 
 
-@pytest.mark.parametrize("estimator", [Rlasso(), RlassoLogit()])
+@pytest.mark.parametrize("estimator", [Rlasso()])
 def test_all_estimators(estimator):
     return check_estimator(estimator)
