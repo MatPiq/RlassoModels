@@ -185,6 +185,7 @@ string docstring = R"mydelimiter(
     zero_tol : float, optional, default: 1e-4
         Zero tolerance. If beta(j) is smaller than zero_tol, 
         set beta(j) = 0.
+
     Returns
     -------
     beta : ndarray
@@ -192,7 +193,6 @@ string docstring = R"mydelimiter(
 )mydelimiter";
 
 PYBIND11_MODULE(solver_fast, m) {
-  // pybind11::module m("code", "auto-compiled c++ extension");
   py::options options;
   options.disable_function_signatures();
   m.doc() = "Coordinate descent solver for lasso and sqrt-lasso";
