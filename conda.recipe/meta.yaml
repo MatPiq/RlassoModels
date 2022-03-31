@@ -23,11 +23,17 @@ requirements:
 
   run:
     - python
+    - numpy
+    - scipy
+    - sklearn
+    - pandas
+    - patsy
+    - cvxpy
 
 
 test:
-  # imports:
-  #   - rlassopy
+  imports:
+    - rlassopy
   requires:
     - pytest
   source_files:
