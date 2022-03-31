@@ -77,7 +77,7 @@ install_requires = [
     "scikit-learn",
     "cvxpy",
     "patsy",
-]  # "osqp==0.6.1",
+]
 
 setup(
     name="rlassopy",

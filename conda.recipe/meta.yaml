@@ -10,12 +10,13 @@ build:
   script: pip install . -vvv
 
 requirements:
-  build:
-    - {{ compiler('cxx') }}
+  # build:
+  #   - {{ compiler('cxx') }}
 
   host:
     - python
     - pip
+    - setuptools
     - pybind11 >=2.6.0
     - scikit-build
     - setuptools_scm
