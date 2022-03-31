@@ -23,16 +23,16 @@ def test_template_estimator(data):
     assert_array_equal(y_pred, np.ones(X.shape[0], dtype=np.int64))
 
 
-def test_template_classifier(data):
-    # TODO test classifier
-    # X, y = data
-    # clf = TemplateClassifier()
-    # assert clf.demo_param == "demo"
-    #
-    # clf.fit(X, y)
-    # assert hasattr(clf, "classes_")
-    # assert hasattr(clf, "X_")
-    # assert hasattr(clf, "y_")
-    #
-    # y_pred = clf.predict(X)
-    # assert y_pred.shape == (X.shape[0],)
+# def test_template_classifier(data):
+# TODO test classifier
+# X, y = data
+# clf = TemplateClassifier()
+# assert clf.demo_param == "demo"
+#
+# clf.fit(X, y)
+# assert hasattr(clf, "classes_")
+# assert hasattr(clf, "X_")
+# assert hasattr(clf, "y_")
+#
+# y_pred = clf.predict(X)
+# assert y_pred.shape == (X.shape[0],)
