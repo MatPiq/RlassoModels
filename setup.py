@@ -68,7 +68,7 @@ ext_modules = [
 ]
 
 extra_requires = {
-    "tests": ["pytest", "pytest-cov"],
+    "test": ["pytest", "pytest-cov"],
 }
 
 install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy", "patsy"]
