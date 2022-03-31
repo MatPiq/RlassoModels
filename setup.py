@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
+from setuptools import find_packages
 from skbuild import setup
 
 SETUP_DIRECTORY = Path(__file__).resolve().parent
@@ -91,5 +92,6 @@ setup(
     cmdclass={"build_ext": build_ext},
     install_requires=install_requires,
     extras_require=extra_requires,
+    packages=find_packages(),
     zip_safe=False,
 )

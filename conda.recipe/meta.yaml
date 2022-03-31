@@ -8,18 +8,18 @@ source:
 build:
   number: 0
   script: python -m pip install . -vvv
-  preserve_egg_dir: True
 
-# requirements:
-#   build:
-#     - {{ compiler('cxx') }}
+
+requirements:
+  build:
+    - {{ compiler('cxx') }} #     - {{ compiler('cxx') }}
 
   host:
     - python
     - pip
-    # - setuptools
-    - pybind11 >=2.6.0
     - scikit-build
+    - setuptools
+    - pybind11 >=2.6.0
     - setuptools_scm
     - requests
 
@@ -28,20 +28,18 @@ build:
     - numpy
     - scipy
     - scikit-learn
-    - pandas
     - patsy
     - cvxpy
 
-
-# test:
-#   imports:
-#     - rlassopy
-#   requires:
-#     - pytest
-#   source_files:
-#     - tests
-#   commands:
-#     - pytest tests
+test:
+  requires:
+    - pytest
+  source_files:
+    - tests/*.py
+  imports:
+    - rlassopy
+  commands:
+    - pytest tests
 
 about:
   summary: Rigorous lasso estimation and inference
