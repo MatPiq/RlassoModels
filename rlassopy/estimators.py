@@ -370,7 +370,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
             beta0 = la.inv(X_top.T @ X_top) @ X_top.T @ y
             v = y - X_top @ beta0
         else:
-            beta0 = la.inv(XX) @ Xy
+            beta0 = np.ones(p) * 0.01
             v = y - X @ beta0
 
         s1 = np.sqrt(np.mean(v**2))
