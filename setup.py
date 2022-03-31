@@ -71,7 +71,7 @@ extra_requires = {
     "test": ["pytest", "pytest-cov"],
 }
 
-install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy", "osqp==0.6.1" "patsy"]
+install_requires = ["numpy", "scipy", "scikit-learn", "cvxpy", "osqp==0.6.1", "patsy"]
 
 setup(
     name="rlassopy",
