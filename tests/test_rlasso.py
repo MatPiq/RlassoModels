@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg as la
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from statsmodels.regression.linear_model import OLS
@@ -6,7 +7,7 @@ from statsmodels.regression.linear_model import OLS
 from rlassopy import Rlasso
 
 
-def data():
+def belloni_dgf():
     """
     Data-generating function following Belloni (2011).
     """
@@ -34,7 +35,7 @@ def test_rlasso_oracle():
     Based on SQUARE-ROOT LASSO: PIVOTAL RECOVERY OF SPARSE
     SIGNALS VIA CONIC PROGRAMMING, Belloni (2011), p.10.
     """
-    X, y, b, cx = data()
+    X, y, b, cx = belloni_dgf()
     _, p = X.shape
 
     # Empirical risk ratio.
@@ -52,10 +53,11 @@ def test_rlasso_oracle():
         e = res.coef_ - b
         numer = np.sqrt(np.dot(e, np.dot(cx, e)))
 
-        oracle = OLS(y, X[:, 0:5]).fit()
-        oracle_err = np.zeros(p)
-        oracle_err[0:5] = oracle.params - b[0:5]
-        denom = np.sqrt(np.dot(oracle_err, np.dot(cx, oracle_err)))
+        X_oracle = X[:, :5]
+        oracle = la.inv(X_oracle.T @ X_oracle) @ X_oracle.T @ y
+        oracle_e = np.zeros(p)
+        oracle_e[0:5] = oracle - b[0:5]
+        denom = np.sqrt(np.dot(oracle_e, np.dot(cx, oracle_e)))
 
         # Check performance relative to oracle, should be around 3.5 for
         # post=False, 1 for post=True
@@ -76,7 +78,7 @@ def test_sqrt_rlasso_oracle():
     Note empirical risk ratio is 3.5 and
     different from `test_rlasso_oracle`.
     """
-    X, y, b, cx = data()
+    X, y, b, cx = belloni_dgf()
     _, p = X.shape
 
     # Empirical risk ratio. Note: statsmodels uses
@@ -95,10 +97,11 @@ def test_sqrt_rlasso_oracle():
         e = res.coef_ - b
         numer = np.sqrt(np.dot(e, np.dot(cx, e)))
 
-        oracle = OLS(y, X[:, 0:5]).fit()
-        oracle_err = np.zeros(p)
-        oracle_err[0:5] = oracle.params - b[0:5]
-        denom = np.sqrt(np.dot(oracle_err, np.dot(cx, oracle_err)))
+        X_oracle = X[:, :5]
+        oracle = la.inv(X_oracle.T @ X_oracle) @ X_oracle.T @ y
+        oracle_e = np.zeros(p)
+        oracle_e[0:5] = oracle - b[0:5]
+        denom = np.sqrt(np.dot(oracle_e, np.dot(cx, oracle_e)))
 
         # Check performance relative to oracle, should be around 3.5 for
         # post=False, 1 for post=True
@@ -111,3 +114,11 @@ def test_sqrt_rlasso_oracle():
 
         # Regression test the parameters
         assert_allclose(res.coef_[0:5], expected_params[post], rtol=1e-5, atol=1e-5)
+
+
+def test_rlasso_vs_lassopack():
+    pass
+
+
+def test_sqrt_rlasso_vs_lassopack():
+    pass
