@@ -135,8 +135,55 @@ def test_sqrt_rlasso_oracle():
 
 
 def test_rlasso_vs_lassopack():
-    pass
+    """
+    Test that rlasso and lassopack implementation are equivalent
+    on Belloni data. Stata specifications:
+        . rlasso y x1-x500
+        . rlasso y x1-x500, robust
+        . rlasso y x1-x500, sqrt
+        . rlasso y x1-x500, sqrt, robust
+    """
 
+    comparison_tab = {
+        "rlasso": {
+            "model": Rlasso(post=False),
+            "lp_coef": [0.8670964, 1.0042459, 0.9874925, 0.9310151, 0.9297773],
+            "lp_lambd": 23.002404,
+        },
+        "rlasso_robust": {
+            "model": Rlasso(post=False, cov_type="robust"),
+            "lp_coef": [0.8782264, 1.0137120, 0.9512580, 0.9571405, 0.9249149],
+            "lp_lambd": 89.945555,
+        },
+        "sqrt_rlasso": {
+            "model": Rlasso(sqrt=True, post=False),
+            "lp_coef": [0.8348139, 0.9943386, 0.9779178, 0.9148454, 0.9022347],
+            "lp_lambd": 44.972777,
+        },
+        "sqrt_rlasso_robust": {
+            "model": Rlasso(sqrt=True, post=False, cov_type="robust"),
+            "lp_coef": [0.8347708, 1.0104739, 0.9380134, 0.9295666, 0.9013439],
+            "lp_lambd": 44.972777,
+        },
+        "post_rlasso": {
+            "model": Rlasso(post=True),
+            "lp_coef": [0.9530015, 1.0306096, 1.0129710, 0.9740435, 1.0030696],
+        },
+    }
 
-def test_sqrt_rlasso_vs_lassopack():
-    pass
+    X, y, _, _ = belloni_dgf()
+
+    for m_name, spec in comparison_tab.items():
+
+        # Compare the model
+        model = spec["model"].fit(X, y)
+        coef = model.coef_[np.nonzero(model.coef_)]
+        lambd = model.lambd_
+
+        # compare coefs
+        # low precision due to sqrt-lasso. Unknown why
+        assert_allclose(coef, spec["lp_coef"], atol=0.02)
+
+        # compare lambd
+        if m_name != "post_rlasso":
+            assert_allclose(lambd, spec["lp_lambd"], atol=1e-5)
