@@ -2,7 +2,6 @@ import numpy as np
 import numpy.linalg as la
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
-from statsmodels.regression.linear_model import OLS
 
 from rlassopy import Rlasso
 
@@ -26,6 +25,25 @@ def belloni_dgf():
     y = np.dot(X, b) + 0.25 * np.random.normal(size=n)
 
     return X, y, b, cx
+
+
+def test_post():
+    """
+    Test that post estimation works.
+    """
+    n = 100
+    p = 5
+    X = np.random.normal(size=(n, p))
+    b = np.ones(p)
+    y = X @ b
+
+    # normal rlasso
+    post = Rlasso(post=True).fit(X, y)
+    sqrt_post = Rlasso(sqrt=True, post=True).fit(X, y)
+    ols = la.inv(X.T @ X) @ X.T @ y
+
+    assert_allclose(post.coef_, ols)
+    assert_allclose(sqrt_post.coef_, ols)
 
 
 def test_rlasso_oracle():
