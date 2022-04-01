@@ -3,7 +3,7 @@
 [![Pip Actions Status][actions-pip-badge]][actions-pip-link] |
 [![Docs Actions Status][actions-docs-badge]][actions-docs-link] |
 
-[**Docs**][docs-link]
+![**Docs**][docs-link]
 
 
 [actions-badge]:           https://github.com/matpiq/rlassopy/workflows/Tests/badge.svg
