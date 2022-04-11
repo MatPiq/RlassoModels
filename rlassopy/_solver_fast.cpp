@@ -17,7 +17,7 @@ using MatrixXdRef = Eigen::MatrixXd;
 using VectorXdRef = Eigen::VectorXd;
 
 
-VectorXd lassoShooting(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef Xy,
+VectorXd coordinateDescent(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef Xy,
                        double lambd, VectorXdRef psi, VectorXdRef startingValues,
                        bool sqrtLasso = false, bool fitIntercept = true,
                        double optTol = 1e-10, int maxIter = 1000,
@@ -67,12 +67,12 @@ VectorXd lassoShooting(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef
     double MaxErrorNorm = 1.0e-10;
 
     // demean X and y
-    if (fitIntercept) {
-      MatrixXd meanX = X.colwise().mean().replicate(n, 1);
-      VectorXd meanY = VectorXd::Ones(n) * y.mean();
-      X = X - meanX;
-      y = y - meanY;
-    }
+    // if (fitIntercept) {
+    //   MatrixXd meanX = X.colwise().mean().replicate(n, 1);
+    //   VectorXd meanY = VectorXd::Ones(n) * y.mean();
+    //   X = X - meanX;
+    //   y = y - meanY;
+    // }
 
     // get error
     VectorXd error = y - X * beta;
@@ -134,11 +134,11 @@ VectorXd lassoShooting(MatrixXdRef X, VectorXdRef y, MatrixXdRef XX, VectorXdRef
       }
       
       // check for convergence
-      // double diff = (beta - betaOld).cwiseAbs().sum();
-      double diff = ((beta - betaOld).cwiseAbs() * (sdVec / ySd)).sum();
+      double diff = (beta - betaOld).cwiseAbs().sum();
+      // double diff = ((beta - betaOld).cwiseAbs() * (sdVec / ySd)).sum();
       if (diff < optTol) {
-        // if ((fobj - dual)  < 1e-6) {
-        if ((fobj - dual) / ySd < optTol) {
+        if ((fobj - dual)  < 1e-6) {
+        // if ((fobj - dual) / ySd < optTol) {
           break;
         }
       }
@@ -192,11 +192,11 @@ string docstring = R"mydelimiter(
         Estimated beta.
 )mydelimiter";
 
-PYBIND11_MODULE(solver_fast, m) {
+PYBIND11_MODULE(_solver_fast, m) {
   py::options options;
   options.disable_function_signatures();
   m.doc() = "Coordinate descent solver for lasso and sqrt-lasso";
-  m.def("lasso_shooting", &lassoShooting, docstring.c_str(),
+  m.def("_cd_solver", &coordinateDescent, docstring.c_str(),
         py::arg("X").noconvert() = NULL, 
         py::arg("y").noconvert() = NULL,
         py::arg("XX").noconvert() = NULL, 
