@@ -4,7 +4,7 @@ import cvxpy as cp
 import numpy as np
 import numpy.linalg as la
 import scipy.stats as st
-import solver_fast as solver
+from _solver_fast import _cd_solver
 
 # import solver
 from patsy import dmatrices
@@ -90,7 +90,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
     def __init__(
         self,
         *,
-        fast=False,
         post=True,
         sqrt=False,
         fit_intercept=True,
@@ -98,18 +97,26 @@ class Rlasso(BaseEstimator, RegressorMixin):
         x_dependent=False,
         lasso_psi=False,
         n_corr=5,
-        max_iter=1,
-        max_iter_shooting=1000,
+        max_iter=2,
+        conv_tol=1e-4,
         n_sim=5000,
         c=1.1,
-        conv_tol=1e-4,
+        solver="cd",
+        cd_max_iter=1000,
+        cd_tol=1e-10,
+        cvxpy_opts=None,
         zero_tol=1e-4,
-        opt_tol=1e-10,
     ):
+        if max_iter < 0:
+            raise ValueError("`max_iter` cannot be negative")
+
         if cov_type not in ("nonrobust", "robust", "cluster"):
             raise ValueError(
                 ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
             )
+
+        if solver not in ("cd", "cvxpy"):
+            raise ValueError("solver must be one of 'cd', 'cvxpy'")
 
         if c < 1:
             warnings.warn(
@@ -117,7 +124,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 " event to hold asymptotically"
             )
 
-        self.fast = fast
         self.post = post
         self.sqrt = sqrt
         self.fit_intercept = fit_intercept
@@ -126,12 +132,14 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.lasso_psi = lasso_psi
         self.n_corr = n_corr
         self.max_iter = max_iter
-        self.max_iter_shooting = max_iter_shooting
+        self.conv_tol = conv_tol
         self.n_sim = n_sim
         self.c = c
-        self.conv_tol = conv_tol
+        self.solver = solver
+        self.cd_max_iter = cd_max_iter
+        self.cd_tol = cd_tol
         self.zero_tol = zero_tol
-        self.opt_tol = opt_tol
+        self.cvxpy_opts = cvxpy_opts
 
     def _psi_calc(self, X, n, v=None):
 
@@ -149,7 +157,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
             elif self.cov_type == "robust" and v is not None:
                 Xv2 = np.einsum("ij, i -> j", X**2, v**2)
                 psi_1 = np.sqrt(np.mean(X**2, axis=0))
-                # psi_1 = np.sqrt(Xv2 / n)
                 psi_2 = np.sqrt(Xv2 / np.sum(v**2))
                 psi = np.maximum(psi_1, psi_2)
             # clustered
@@ -183,12 +190,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
         n,
         p,
         gamma,
+        X,
         *,
         v=None,
         s1=None,
-        X=None,
         psi=None,
-    ):
+    ):  # sourcery skip: remove-redundant-if
         """Calculate the lambda/overall penalty level."""
 
         # TODO Always return both lambda and lambda scaled by RMSE
@@ -207,14 +214,13 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 psi = psi[1:, 1:]
 
         if self.sqrt:
-            lasso_factor = self.c
+            lf = self.c
             # x-independent (same for robust and nonrobust)
             if not self.x_dependent:
                 prob = st.norm.ppf(1 - (gamma / (2 * p)))
-                lambd = lasso_factor * np.sqrt(n) * prob
+                lambd = lf * np.sqrt(n) * prob
 
-            # x-dependent and nonrobust case
-            elif self.x_dependent and self.cov_type == "nonrobust":
+            elif self.cov_type == "nonrobust":
                 Xpsi = X @ la.inv(psi)
                 sims = np.empty(self.n_sim)
                 for r in range(self.n_sim):
@@ -222,10 +228,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
                     sg = np.mean(g**2)
                     sims[r] = sg * np.max(np.abs(np.sum(Xpsi * g, axis=0)))
 
-                lambd = lasso_factor * np.quantile(sims, 1 - gamma)
+                lambd = lf * np.quantile(sims, 1 - gamma)
 
-            # x-dependent and robust case
-            elif self.x_dependent and self.cov_type == "robust":
+            elif self.cov_type == "robust":
                 Xpsi = X @ la.inv(psi)
                 sims = np.empty(self.n_sim)
                 for r in range(self.n_sim):
@@ -233,9 +238,8 @@ class Rlasso(BaseEstimator, RegressorMixin):
                     sg = np.mean(g**2)
                     sims[r] = sg * np.max(np.abs(np.sum(Xpsi * v[:, None] * g, axis=0)))
 
-                lambd = lasso_factor * np.quantile(sims, 1 - gamma)
+                lambd = lf * np.quantile(sims, 1 - gamma)
 
-            # x-dependent and clustered case
             else:
                 raise NotImplementedError(
                     "Cluster robust penalty\
@@ -244,40 +248,39 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         else:
 
-            lasso_factor = 2 * self.c
+            lf = 2 * self.c
             # homoscedasticity and x-independent case
             if self.cov_type == "nonrobust" and not self.x_dependent:
                 assert s1 is not None
                 proba = st.norm.ppf(1 - (gamma / (2 * p)))
                 # homoscedastic/non-robust case
-                lambd = lasso_factor * s1 * np.sqrt(n) * proba
+                lambd = lf * s1 * np.sqrt(n) * proba
 
-            # homoscedastic and x-dependent case
             elif self.cov_type == "nonrobust" and self.x_dependent:
                 assert psi is not None
                 sims = np.empty(self.n_sim)
-                Xpsi = X @ np.linalg.inv(psi)
+                Xpsi = X @ la.inv(psi)
                 for r in range(self.n_sim):
                     g = np.random.normal(size=(n, 1))
                     sims[r] = np.max(np.abs(np.sum(Xpsi * g, axis=0)))
 
-                lambd = lasso_factor * s1 * np.quantile(sims, 1 - gamma)
+                lambd = lf * s1 * np.quantile(sims, 1 - gamma)
 
             # heteroscedastic/cluster robust and x-independent case
             elif self.cov_type in ("robust", "cluster") and not self.x_dependent:
 
                 proba = st.norm.ppf(1 - (gamma / (2 * p)))
-                lambd = lasso_factor * np.sqrt(n) * proba
+                lambd = lf * np.sqrt(n) * proba
 
             # heteroscedastic/cluster robust and x-dependent case
             elif self.cov_type == "robust" and self.x_dependent:
                 sims = np.empty(self.n_sim)
-                Xpsi = X @ np.linalg.inv(psi)
+                Xpsi = X @ la.inv(psi)
                 for r in range(self.n_sim):
                     g = np.random.normal(size=(n, 1))
                     sims[r] = np.max(np.abs(np.sum(Xpsi * v[:, None] * g, axis=0)))
 
-                lambd = lasso_factor * np.quantile(sims, 1 - gamma)
+                lambd = lf * np.quantile(sims, 1 - gamma)
 
             # heteroscedastic/cluster robust and x-dependent case
             else:
@@ -288,24 +291,67 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         return lambd
 
-    def _starting_values(self, XX, Xy, lambd, psi):
-        """Calculate starting values for the lasso."""
-        if self.sqrt:
-            beta_ridge = la.solve(XX + lambd * np.diag(psi**2), Xy)
-        else:
-            beta_ridge = la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
-        return beta_ridge
+    def _cvxpy_solver(
+        self,
+        X,
+        y,
+        lambd,
+        psi,
+        n,
+        p,
+    ):
+        """
+        Solve the lasso problem using cvxpy
+        """
 
-    @staticmethod
-    def _post_lasso(beta, X, y):
-        """Run post-lasso/OLS on the lasso coefficients."""
+        beta = cp.Variable(p)
+
+        if self.sqrt:
+            loss = cp.norm2(y - X @ beta) / cp.sqrt(n)
+        else:
+            loss = cp.sum_squares(y - X @ beta) / n
+
+        reg = (lambd / n) * cp.norm1(np.diag(psi) @ beta)
+        objective = cp.Minimize(loss + reg)
+        prob = cp.Problem(objective)
+        prob.solve(**self.cvxpy_opts or {})
+
+        # round beta to zero if below threshold
+        beta = beta.value
+        beta[np.abs(beta) < self.zero_tol] = 0.0
+
+        return beta
+
+    def _OLS(self, X, y):
+        """
+        Solve the OLS problem
+        """
+        try:
+            return la.solve(X.T @ X, X.T @ y)
+        except la.LinAlgError:
+            warnings.warn(
+                "Singular matrix encountered. \
+                invoking lstsq solver for OLS"
+            )
+            return la.lstsq(X, y, rcond=None)[0]
+
+    def _post_lasso(self, beta, X, y):
+        """Replace the non-zero lasso coefficients by OLS."""
 
         nonzero_idx = np.where(beta != 0)[0]
         X_sub = X[:, nonzero_idx]
-        post_beta = np.linalg.inv(X_sub.T @ X_sub) @ X_sub.T @ y
+        post_beta = self._OLS(X_sub, y)
         beta[nonzero_idx] = post_beta
 
         return beta
+
+    def _starting_values(self, XX, Xy, lambd, psi):
+        """Calculate starting values for the lasso."""
+        return (
+            la.solve(XX + lambd * np.diag(psi**2), Xy)
+            if self.sqrt
+            else la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
+        )
 
     def _fit(self, X, y, gamma):
         """Helper function to fit the model."""
@@ -324,37 +370,49 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             corr_range = np.arange(p)
 
-        # precompute XX and Xy crossprods
-        XX = X.T @ X
-        Xy = X.T @ y
+        if self.solver == "cd":
+            # precompute XX and Xy crossprods
+            XX = X.T @ X
+            Xy = X.T @ y
 
-        # make matrices fortran contiguous
-        XX = np.asfortranarray(XX, dtype=np.float64)
-        X = np.asfortranarray(X, dtype=np.float64)
-        Xy = np.asfortranarray(Xy, dtype=np.float64)
-        y = np.asfortranarray(y, dtype=np.float64)
+            # make matrices fortran contiguous
+            XX = np.asfortranarray(XX, dtype=np.float64)
+            X = np.asfortranarray(X, dtype=np.float64)
+            Xy = np.asfortranarray(Xy, dtype=np.float64)
+            y = np.asfortranarray(y, dtype=np.float64)
 
         # sqrt used under homoscedastic is one-step estimator
         if self.sqrt and self.cov_type == "nonrobust" and not self.x_dependent:
 
             psi = self._psi_calc(X, n)
             lambd = self._lambd_calc(n=n, p=p, gamma=gamma, X=X)
-            beta_ridge = self._starting_values(XX, Xy, lambd, psi)
 
-            beta = solver.lasso_shooting(
-                X=X,
-                y=y,
-                XX=XX,
-                Xy=Xy,
-                lambd=lambd,
-                psi=psi,
-                starting_values=beta_ridge,
-                sqrt=self.sqrt,
-                fit_intercept=self.fit_intercept,
-                max_iter=self.max_iter_shooting,
-                opt_tol=self.opt_tol,
-                zero_tol=self.zero_tol,
-            )
+            if self.solver == "cd":
+                beta_ridge = self._starting_values(XX, Xy, lambd, psi)
+                beta = _cd_solver(
+                    X=X,
+                    y=y,
+                    XX=XX,
+                    Xy=Xy,
+                    lambd=lambd,
+                    psi=psi,
+                    starting_values=beta_ridge,
+                    sqrt=self.sqrt,
+                    fit_intercept=self.fit_intercept,
+                    max_iter=self.cd_max_iter,
+                    opt_tol=self.cd_tol,
+                    zero_tol=self.zero_tol,
+                )
+            elif self.solver == "cvxpy":
+                beta = self._cvxpy_solver(
+                    X=X,
+                    y=y,
+                    lambd=lambd,
+                    psi=psi,
+                    n=n,
+                    p=p,
+                )
+
             if self.post:
                 beta = self._post_lasso(beta, X, y)
 
@@ -367,10 +425,10 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 r[k] = np.abs(st.pearsonr(X[:, k], y)[0])
 
             X_top = X[:, np.argsort(r)[-self.n_corr :]]
-            beta0 = la.inv(X_top.T @ X_top) @ X_top.T @ y
+            beta0 = self._OLS(X_top, y)
             v = y - X_top @ beta0
         else:
-            beta0 = np.ones(p) * 0.01
+            beta0 = self._OLS(X, y)
             v = y - X @ beta0
 
         s1 = np.sqrt(np.mean(v**2))
@@ -385,35 +443,47 @@ class Rlasso(BaseEstimator, RegressorMixin):
             X=X,
             psi=psi,
         )
-        beta_ridge = self._starting_values(XX, Xy, lambd, psi)
 
-        # run shooting algorithm
-        beta = solver.lasso_shooting(
-            X=X,
-            y=y,
-            XX=XX,
-            Xy=Xy,
-            lambd=lambd,
-            psi=psi,
-            starting_values=beta_ridge,
-            sqrt=self.sqrt,
-            fit_intercept=self.fit_intercept,
-            max_iter=self.max_iter_shooting,
-            opt_tol=self.opt_tol,
-            zero_tol=self.zero_tol,
-        )
+        # get initial estimates k=0
+        if self.solver == "cd":
+            beta_ridge = self._starting_values(XX, Xy, lambd, psi)
+            beta = _cd_solver(
+                X=X,
+                y=y,
+                XX=XX,
+                Xy=Xy,
+                lambd=lambd,
+                psi=psi,
+                starting_values=beta_ridge,
+                sqrt=self.sqrt,
+                fit_intercept=self.fit_intercept,
+                max_iter=self.cd_max_iter,
+                opt_tol=self.cd_tol,
+                zero_tol=self.zero_tol,
+            )
+        else:
+            beta = self._cvxpy_solver(
+                X=X,
+                y=y,
+                lambd=lambd,
+                psi=psi,
+                n=n,
+                p=p,
+            )
 
         for k in range(self.max_iter):
 
             s0 = s1
 
-            # error refinement
+            # post lasso handling
             if not self.lasso_psi:
                 beta = self._post_lasso(beta, X, y)
+
+            # error refinement
             v = y - X @ beta
             s1 = np.sqrt(np.mean(v**2))
 
-            # get new estimates
+            # if convergence not reached get new estimates of lambd and psi
             psi = self._psi_calc(X=X, v=v, n=n)
             lambd = self._lambd_calc(
                 n=n,
@@ -424,26 +494,38 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 X=X,
                 psi=psi,
             )
-            beta = solver.lasso_shooting(
-                X=X,
-                y=y,
-                XX=XX,
-                Xy=Xy,
-                lambd=lambd,
-                psi=psi,
-                starting_values=beta,
-                sqrt=self.sqrt,
-                fit_intercept=self.fit_intercept,
-                max_iter=self.max_iter_shooting,
-                opt_tol=self.opt_tol,
-                zero_tol=self.zero_tol,
-            )
 
+            if self.solver == "cd":
+                beta = _cd_solver(
+                    X=X,
+                    y=y,
+                    XX=XX,
+                    Xy=Xy,
+                    lambd=lambd,
+                    psi=psi,
+                    starting_values=beta_ridge,
+                    sqrt=self.sqrt,
+                    fit_intercept=self.fit_intercept,
+                    max_iter=self.cd_max_iter,
+                    opt_tol=self.cd_tol,
+                    zero_tol=self.zero_tol,
+                )
+
+            elif self.solver == "cvxpy":
+                beta = self._cvxpy_solver(
+                    X=X,
+                    y=y,
+                    lambd=lambd,
+                    psi=psi,
+                    n=n,
+                    p=p,
+                )
+
+            # check convergence
             if np.abs(s1 - s0) < self.conv_tol:
                 break
-
         # end of algorithm
-        if self.post:
+        if self.post and not self.lasso_psi:
             beta = self._post_lasso(beta, X, y)
 
         return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k + 1}
@@ -542,9 +624,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         check_is_fitted(self, ["coef_"])
         X = check_array(X)
 
-        pred = self.intercept_ + X @ self.coef_
-
-        return pred
+        return self.intercept_ + X @ self.coef_
 
 
 class RlassoLogit(BaseEstimator, ClassifierMixin):
@@ -572,9 +652,8 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         ll = cp.sum(cp.multiply(y, X @ beta) - cp.logistic(X @ beta)) / n
         if not regularization:
             return -ll
-        else:
-            reg = (lambd / n) * cp.norm1(beta)
-            return -(ll - reg)
+        reg = (lambd / n) * cp.norm1(beta)
+        return -(ll - reg)
 
     def _cvxpy_solve(self, X, y, lambd, n, p):
         """Solve the problem using cvxpy."""
@@ -656,7 +735,107 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
     def predict_proba(self, X):
         """Predict class probabilities for X."""
         # check model is fitted and inputs are correct
-        check_is_fitted(self, ["coef_"])
+        check_is_fitted(self)
         X = check_array(X)
 
         return self._decision_function(X, self.coef_)
+
+    def predict_log_proba(self, X):
+        """Predict class log-probabilities for X."""
+        return np.log(self._decision_function(X, self.coef_))
+
+
+class RlassoEffect:
+
+    """
+    Rigorous Lasso IV Regression.
+    """
+
+    def __init__(
+        self,
+        *,
+        method="pdsl",
+        post=True,
+        sqrt=False,
+        fit_intercept=True,
+        cov_type="nonrobust",
+        x_dependent=False,
+        lasso_psi=False,
+        n_corr=5,
+        max_iter=1,
+        max_iter_shooting=1000,
+        n_sim=5000,
+        c=1.1,
+        conv_tol=1e-4,
+        zero_tol=1e-4,
+        opt_tol=1e-10,
+    ):
+        if method not in ("pds", "po"):
+            raise ValueError("Selection method must be 'pds' or 'po'")
+
+        if cov_type not in ("nonrobust", "robust", "cluster"):
+            raise ValueError(
+                ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
+            )
+
+        if c < 1:
+            warnings.warn(
+                "c should be greater than 1 for the regularization"
+                " event to hold asymptotically"
+            )
+
+        self.rlasso = Rlasso(
+            post=post,
+            sqrt=sqrt,
+            fit_intercept=fit_intercept,
+            cov_type=cov_type,
+            x_dependent=x_dependent,
+            lasso_psi=lasso_psi,
+            n_corr=n_corr,
+            max_iter=max_iter,
+            max_iter_shooting=max_iter_shooting,
+            n_sim=n_sim,
+            c=c,
+            conv_tol=conv_tol,
+            zero_tol=zero_tol,
+            opt_tol=opt_tol,
+        )
+
+        self.method = method
+        self.post = post
+        self.sqrt = sqrt
+        self.fit_intercept = fit_intercept
+        self.cov_type = cov_type
+        self.x_dependent = x_dependent
+        self.lasso_psi = lasso_psi
+        self.n_corr = n_corr
+        self.max_iter = max_iter
+        self.max_iter_shooting = max_iter_shooting
+        self.n_sim = n_sim
+        self.c = c
+        self.conv_tol = conv_tol
+        self.zero_tol = zero_tol
+        self.opt_tol = opt_tol
+
+        def _fit(self, X, y, d, *, gamma=None):
+
+            """
+            Fit the model to the data.
+
+            Parameters
+            ----------
+            X: array-like, shape (n_samples, n_features)
+                Design matrix.
+            y: array-like, shape (n_samples,)
+                Target vector.
+            d: array-like, shape (n_samples,)
+                Treatment vector.
+            gamma: float, optional (default: 0.1 / np.log(n_samples))
+
+            Returns
+            -------
+            """
+
+            if self.method == "pds":
+                I1 = self.rlasso.fit(X, d, gamma=gamma)
+                I2 = self.rlasso.fit(X, y, gamma=gamma)
