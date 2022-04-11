@@ -178,7 +178,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         # TODO Implement cluster robust covariance
         # if prestandardized X, set loadings to ones
         if self.prestd:
-            psi = np.ones(X.shape[1])
+            psi = np.ones(self.n_features_in_)
 
         # sqrt case
         elif self.sqrt:
@@ -234,13 +234,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         if psi is not None:
             psi = np.diag(psi)
-
-        # adjust for intercept
-        # if self.fit_intercept:
-        #     p = p - 1
-        #     if self.x_dependent:
-        #         X = X[:, 1:]
-        #         psi = psi[1:, 1:]
 
         if self.sqrt:
             lf = self.c
@@ -381,13 +374,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             return la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
 
-    def _standardize(self, X, y):
-        """Standardize the data."""
-        X_mean, y_mean = np.mean(X, axis=0), np.mean(y)
-        X_std, y_std = np.std(X, axis=0), np.std(y)
-        X, y = (X - X_mean) / X_std, (y - y_mean) / y_std
-        return X, y, X_mean, y_mean, X_std, y_std
-
     def _fit(self, X, y, *, gamma=None):
         """Helper function to fit the model."""
 
@@ -417,18 +403,20 @@ class Rlasso(BaseEstimator, RegressorMixin):
         # check random state
         self.random_state_ = check_random_state(self.random_state)
 
-        if self.prestd:
-            X, y, X_mean, y_mean, X_std, y_std = self._standardize(X, y)
-
         # set default gamma if not provided
         if gamma is None:
             gamma = 0.1 / np.log(n)
 
-        # intercept handling
-        if self.fit_intercept:
+        # intercept and pre-standardization handling
+        if self.fit_intercept or self.prestd:
             X_mean, y_mean = np.mean(X, axis=0), np.mean(y)
             X, y = X - X_mean, y - y_mean
 
+        if self.prestd:
+            X_std, y_std = np.std(X, axis=0), np.std(y)
+            X, y = X / X_std, y / y_std
+
+        # pre-allocate arrays for coordinate descent solver
         if self.solver == "cd":
             # precompute XX and Xy crossprods
             XX = X.T @ X
@@ -474,6 +462,10 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
             if self.post:
                 beta = self._post_lasso(beta, X, y)
+
+            # rescale beta
+            if self.prestd:
+                beta *= y_std / X_std
 
             self.intercept_ = y_mean - X_mean @ beta if self.fit_intercept else 0.0
             self.nonzero_indices_ = np.where(beta != 0)[0]
