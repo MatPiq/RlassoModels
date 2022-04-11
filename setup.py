@@ -57,8 +57,8 @@ class get_pybind_include(object):
 
 ext_modules = [
     Pybind11Extension(
-        "solver_fast",
-        ["rlassopy/solver_fast.cpp"],
+        "_solver_fast",
+        ["rlassopy/_solver_fast.cpp"],
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
