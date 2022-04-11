@@ -21,10 +21,29 @@ def belloni_dgf():
 
     X = np.dot(np.random.normal(size=(n, p)), cxr.T)
     b = np.zeros(p)
-    b[0:5] = [1, 1, 1, 1, 1]
+    b[:5] = [1, 1, 1, 1, 1]
     y = np.dot(X, b) + 0.25 * np.random.normal(size=n)
 
     return X, y, b, cx
+
+
+def test_cd_vs_cvxpy():
+    """
+    Test that the CD and CVXPY solvers give the same results.
+    """
+    X, y, _, _ = belloni_dgf()
+
+    # rlasso
+    res_cvxpy = Rlasso(post=False, solver="cvxpy").fit(X, y)
+    res_cd = Rlasso(post=False, solver="cd").fit(X, y)
+
+    assert_allclose(res_cvxpy.coef_, res_cd.coef_, atol=1e-5)
+
+    # sqrt-rlasso
+    res_sqrt_cvxpy = Rlasso(sqrt=True, post=False, solver="cvxpy").fit(X, y)
+    res_sqrt_cd = Rlasso(sqrt=True, post=False, solver="cd").fit(X, y)
+
+    assert_allclose(res_sqrt_cvxpy.coef_, res_sqrt_cd.coef_, atol=1e-5)
 
 
 def test_post():
@@ -74,7 +93,7 @@ def test_rlasso_oracle():
         X_oracle = X[:, :5]
         oracle = la.inv(X_oracle.T @ X_oracle) @ X_oracle.T @ y
         oracle_e = np.zeros(p)
-        oracle_e[0:5] = oracle - b[0:5]
+        oracle_e[:5] = oracle - b[:5]
         denom = np.sqrt(np.dot(oracle_e, np.dot(cx, oracle_e)))
 
         # Check performance relative to oracle, should be around 3.5 for
@@ -87,7 +106,7 @@ def test_rlasso_oracle():
         assert n_components == 5
 
         # Regression test the parameters
-        assert_allclose(res.coef_[0:5], expected_params[post], rtol=1e-5, atol=1e-5)
+        assert_allclose(res.coef_[:5], expected_params[post], rtol=1e-5, atol=1e-5)
 
 
 def test_sqrt_rlasso_oracle():
@@ -105,7 +124,8 @@ def test_sqrt_rlasso_oracle():
 
     # Used for regression testing
     expected_params = {
-        False: np.r_[0.83636403, 0.98917002, 0.9913215, 0.90954702, 0.90655144],
+        False: np.r_[0.83455166, 0.99496994, 0.97618569, 0.91554244, 0.9015228],
+        # False: np.r_[0.83636403, 0.98917002, 0.9913215, 0.90954702, 0.90655144],
         True: np.r_[0.95300153, 1.03060962, 1.01297103, 0.97404348, 1.00306961],
     }
 
@@ -118,7 +138,7 @@ def test_sqrt_rlasso_oracle():
         X_oracle = X[:, :5]
         oracle = la.inv(X_oracle.T @ X_oracle) @ X_oracle.T @ y
         oracle_e = np.zeros(p)
-        oracle_e[0:5] = oracle - b[0:5]
+        oracle_e[:5] = oracle - b[:5]
         denom = np.sqrt(np.dot(oracle_e, np.dot(cx, oracle_e)))
 
         # Check performance relative to oracle, should be around 3.5 for
@@ -131,7 +151,7 @@ def test_sqrt_rlasso_oracle():
         assert n_components == 5
 
         # Regression test the parameters
-        assert_allclose(res.coef_[0:5], expected_params[post], rtol=1e-5, atol=1e-5)
+        assert_allclose(res.coef_[:5], expected_params[post], rtol=1e-5, atol=1e-5)
 
 
 def test_rlasso_vs_lassopack():
@@ -182,7 +202,7 @@ def test_rlasso_vs_lassopack():
 
         # compare coefs
         # low precision due to sqrt-lasso. Unknown why
-        assert_allclose(coef, spec["lp_coef"], atol=0.02)
+        assert_allclose(coef, spec["lp_coef"], atol=1e-2)
 
         # compare lambd
         if m_name != "post_rlasso":
