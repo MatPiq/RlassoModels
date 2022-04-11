@@ -80,7 +80,8 @@ def test_rlasso_oracle():
 
     # Used for regression testing
     expected_params = {
-        False: np.r_[0.86706825, 1.00475367, 0.98628392, 0.93160201, 0.9293992],
+        # False: np.r_[0.86706825, 1.00475367, 0.98628392, 0.93160201, 0.9293992],
+        False: np.r_[0.86709638, 1.00424588, 0.98749245, 0.93101511, 0.92977734],
         True: np.r_[0.95300153, 1.03060962, 1.01297103, 0.97404348, 1.00306961],
     }
 
@@ -124,8 +125,8 @@ def test_sqrt_rlasso_oracle():
 
     # Used for regression testing
     expected_params = {
-        False: np.r_[0.83455166, 0.99496994, 0.97618569, 0.91554244, 0.9015228],
-        # False: np.r_[0.83636403, 0.98917002, 0.9913215, 0.90954702, 0.90655144],
+        # False: np.r_[0.83455166, 0.99496994, 0.97618569, 0.91554244, 0.9015228],
+        False: np.r_[0.83481394, 0.9943386, 0.97791781, 0.91484541, 0.90223471],
         True: np.r_[0.95300153, 1.03060962, 1.01297103, 0.97404348, 1.00306961],
     }
 
@@ -202,7 +203,7 @@ def test_rlasso_vs_lassopack():
 
         # compare coefs
         # low precision due to sqrt-lasso. Unknown why
-        assert_allclose(coef, spec["lp_coef"], atol=1e-2)
+        assert_allclose(coef, spec["lp_coef"], atol=1e-5, rtol=1e-5)
 
         # compare lambd
         if m_name != "post_rlasso":
