@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.linalg as la
 import pytest
-from numpy.testing import assert_allclose, assert_array_equal
+from numpy.testing import assert_allclose
 
 from rlassopy import Rlasso
 
@@ -48,7 +48,7 @@ def test_cd_vs_cvxpy():
 
 def test_post():
     """
-    Test that post estimation works.
+    Test that post estimation yields expected OLS results.
     """
     n = 100
     p = 5
@@ -63,6 +63,18 @@ def test_post():
 
     assert_allclose(post.coef_, ols)
     assert_allclose(sqrt_post.coef_, ols)
+
+
+def test_prestd():
+    """Test that the pre-standardization yield
+    the same result as "on-the-fly" standardization.
+    through penalty loadings.
+    """
+    X, y, b, cx = belloni_dgf()
+    beta_psi = Rlasso(post=False, prestd=False).fit(X, y).coef_
+    beta_prestd = Rlasso(post=False, prestd=True).fit(X, y).coef_
+
+    assert_allclose(beta_psi, beta_prestd, rtol=1e-5, atol=1e-5)
 
 
 def test_rlasso_oracle():
