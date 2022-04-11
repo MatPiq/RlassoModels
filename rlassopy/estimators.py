@@ -9,7 +9,12 @@ from _solver_fast import _cd_solver
 # import solver
 from patsy import dmatrices
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
-from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
+from sklearn.utils.validation import (
+    check_array,
+    check_is_fitted,
+    check_random_state,
+    check_X_y,
+)
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
@@ -21,67 +26,104 @@ class Rlasso(BaseEstimator, RegressorMixin):
     ----------
     post: bool, default=True
         If True, post-lasso is used to estimate betas.
+
     sqrt: bool, default=False
         If True, sqrt lasso criterion is minimized:
         loss = ||y - X @ beta||_2 / sqrt(n)
         see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
         Square-root lasso: pivotal recovery of sparse signals via
         conic programming. Biometrika, 98(4), 791-806.
+
     fit_intercept: bool, default=True
-        If True, intercept is estimated.
+        If True, unpenalized intercept is estimated.
+
     cov_type: str, default="nonrobust"
         Type of covariance matrix.
         "nonrobust" - nonrobust covariance matrix
         "robust" - robust covariance matrix
         "cluster" - cluster robust covariance matrix
+
     x_dependent: bool, default=False
         If True, the less conservative lambda is estimated
         by simulation using the conditional distribution of the
         design matrix.
-    lasso_psi: bool, default=False
-        If True, post-lasso is not used to obtain the residuals
-        during the iterative estimation procedure.
-    n_corr: int, default=5
-        Number of correlated variables to be used in the
-        for initial calculation of the residuals.
-    max_iter: int, default=2
-        Maximum number of iterations to perform in the iterative
-        estimation procedure.
-    max_iter_shooting: int, default=10000
-        Maximum number of iterations to perform in the shooting
-        algorithm.
+
     n_sim: int, default=5000
         Number of simulations to be performed for x-dependent
         lambda calculation.
+
+    random_state: int, default=None
+        Random seed used for simulations if `x_dependent` is True.
+
+    lasso_psi: bool, default=False
+        If True, post-lasso is not used to obtain the residuals
+        during the iterative estimation procedure.
+
+    n_corr: int, default=5
+        Number of correlated variables to be used in the
+        for initial calculation of the residuals.
+
     c: float, default=1.1
         slack parameter used for lambda calculation. From
         Hansen et.al. (2020): "c needs to be greater than 1
         for the regularization event to hold asymptotically,
         but not too high as the shrinkage bias is increasing in c."
-    zero_tol: float, default=1e-4
-        Tolerance for the rounding of the coefficients to zero.
-    convergence_tol: float, default=1e-4
+
+    max_iter: int, default=2
+        Maximum number of iterations to perform in the iterative
+        estimation procedure.
+
+    conv_tol: float, default=1e-4
         Tolerance for the convergence of the iterative estimation
         procedure.
-    verbose: bool, default=False
-        If True, the progress of the iterative estimation procedure
-        is printed.
+
+    solver: str, default="cd"
+        Solver to be used for the iterative estimation procedure.
+        "cd" - coordinate descent
+        "cvxpy" - cvxpy solver
+
+    cd_max_iter: int, default=10000
+        Maximum number of iterations to perform in the shooting
+        algorithm.
+
+    cd_tol: float, default=1e-10
+        Tolerance for the coordinate descent algorithm.
+
+    cvxpy_opts: dict, default=None
+        Options to be passed to the cvxpy solver. See cvxpy documentation
+        for more details:
+        https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
+
+    zero_tol: float, default=1e-4
+        Tolerance for the rounding of the coefficients to zero.
 
     attributes
     ----------
     coef_: numpy.array, shape (n_features,)
         Estimated coefficients.
+
     intercept_: float
         Estimated intercept.
+
     lambd_: float
         Estimated lambda/overall penalty level.
+
     psi_: numpy.array, shape (n_features, n_features)
         Estimated penalty loadings.
+
     n_iter_: int
         Number of iterations performed by the rlasso algorithm.
+
+    n_features_in_: int
+        Number of features in the input data.
+
+    n_samples_: int
+        Number of samples/observations in the input data.
+
     endog_: str
         Name of the endogenous variable. Only stored if
         fit_formula method is used.
+
     exog_: list[str]
         Names of the exogenous variables. Only stored if
         fit_formula method is used.
@@ -95,7 +137,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
         fit_intercept=True,
         cov_type="nonrobust",
         x_dependent=False,
+        random_state=None,
         lasso_psi=False,
+        prestd=False,
         n_corr=5,
         max_iter=2,
         conv_tol=1e-4,
@@ -107,29 +151,15 @@ class Rlasso(BaseEstimator, RegressorMixin):
         cvxpy_opts=None,
         zero_tol=1e-4,
     ):
-        if max_iter < 0:
-            raise ValueError("`max_iter` cannot be negative")
-
-        if cov_type not in ("nonrobust", "robust", "cluster"):
-            raise ValueError(
-                ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
-            )
-
-        if solver not in ("cd", "cvxpy"):
-            raise ValueError("solver must be one of 'cd', 'cvxpy'")
-
-        if c < 1:
-            warnings.warn(
-                "c should be greater than 1 for the regularization"
-                " event to hold asymptotically"
-            )
 
         self.post = post
         self.sqrt = sqrt
         self.fit_intercept = fit_intercept
         self.cov_type = cov_type
         self.x_dependent = x_dependent
+        self.random_state = random_state
         self.lasso_psi = lasso_psi
+        self.prestd = prestd
         self.n_corr = n_corr
         self.max_iter = max_iter
         self.conv_tol = conv_tol
@@ -146,9 +176,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
         """Calculate the penalty loadings."""
 
         # TODO Implement cluster robust covariance
+        # if prestandardized X, set loadings to ones
+        if self.prestd:
+            psi = np.ones(X.shape[1])
 
-        # loadings for sqrt lasso
-        if self.sqrt:
+        # sqrt case
+        elif self.sqrt:
 
             if self.cov_type == "nonrobust":
                 psi = np.sqrt(np.mean(X**2, axis=0))
@@ -163,25 +196,21 @@ class Rlasso(BaseEstimator, RegressorMixin):
             else:
                 raise NotImplementedError(
                     "Cluster robust loadings not \
-                                            implemented"
+                                                implemented"
                 )
+
+        elif self.cov_type == "nonrobust":
+            psi = np.sqrt(np.mean(X**2, axis=0))
+
+        elif self.cov_type == "robust" and v is not None:
+            Xe2 = np.einsum("ij, i -> j", X**2, v**2)
+            psi = np.sqrt(Xe2 / n)
 
         else:
-            if self.cov_type == "nonrobust":
-                psi = np.sqrt(np.mean(X**2, axis=0))
-
-            elif self.cov_type == "robust" and v is not None:
-                Xe2 = np.einsum("ij, i -> j", X**2, v**2)
-                psi = np.sqrt(Xe2 / n)
-
-            else:
-                raise NotImplementedError(
-                    "Cluster robust loadings not \
-                                            implemented"
-                )
-        # constant should be unpenalized
-        if self.fit_intercept:
-            psi[0] = 0.0
+            raise NotImplementedError(
+                "Cluster robust loadings not \
+                                                implemented"
+            )
 
         return psi
 
@@ -207,11 +236,11 @@ class Rlasso(BaseEstimator, RegressorMixin):
             psi = np.diag(psi)
 
         # adjust for intercept
-        if self.fit_intercept:
-            p = p - 1
-            if self.x_dependent:
-                X = X[:, 1:]
-                psi = psi[1:, 1:]
+        # if self.fit_intercept:
+        #     p = p - 1
+        #     if self.x_dependent:
+        #         X = X[:, 1:]
+        #         psi = psi[1:, 1:]
 
         if self.sqrt:
             lf = self.c
@@ -224,7 +253,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 Xpsi = X @ la.inv(psi)
                 sims = np.empty(self.n_sim)
                 for r in range(self.n_sim):
-                    g = np.random.normal(size=(n, 1))
+                    g = self.random_state_.normal(size=(n, 1))
                     sg = np.mean(g**2)
                     sims[r] = sg * np.max(np.abs(np.sum(Xpsi * g, axis=0)))
 
@@ -234,7 +263,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 Xpsi = X @ la.inv(psi)
                 sims = np.empty(self.n_sim)
                 for r in range(self.n_sim):
-                    g = np.random.normal(size=(n, 1))
+                    g = self.random_state_.normal(size=(n, 1))
                     sg = np.mean(g**2)
                     sims[r] = sg * np.max(np.abs(np.sum(Xpsi * v[:, None] * g, axis=0)))
 
@@ -261,7 +290,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 sims = np.empty(self.n_sim)
                 Xpsi = X @ la.inv(psi)
                 for r in range(self.n_sim):
-                    g = np.random.normal(size=(n, 1))
+                    g = self.random_state_.normal(size=(n, 1))
                     sims[r] = np.max(np.abs(np.sum(Xpsi * g, axis=0)))
 
                 lambd = lf * s1 * np.quantile(sims, 1 - gamma)
@@ -277,7 +306,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 sims = np.empty(self.n_sim)
                 Xpsi = X @ la.inv(psi)
                 for r in range(self.n_sim):
-                    g = np.random.normal(size=(n, 1))
+                    g = self.random_state_.normal(size=(n, 1))
                     sims[r] = np.max(np.abs(np.sum(Xpsi * v[:, None] * g, axis=0)))
 
                 lambd = lf * np.quantile(sims, 1 - gamma)
@@ -347,16 +376,49 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     def _starting_values(self, XX, Xy, lambd, psi):
         """Calculate starting values for the lasso."""
-        return (
-            la.solve(XX + lambd * np.diag(psi**2), Xy)
-            if self.sqrt
-            else la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
-        )
+        if self.sqrt:
+            return la.solve(XX + lambd * np.diag(psi**2), Xy)
+        else:
+            return la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
 
-    def _fit(self, X, y, gamma):
+    def _standardize(self, X, y):
+        """Standardize the data."""
+        X_mean, y_mean = np.mean(X, axis=0), np.mean(y)
+        X_std, y_std = np.std(X, axis=0), np.std(y)
+        X, y = (X - X_mean) / X_std, (y - y_mean) / y_std
+        return X, y, X_mean, y_mean, X_std, y_std
+
+    def _fit(self, X, y, *, gamma=None):
         """Helper function to fit the model."""
 
+        if self.max_iter < 0:
+            raise ValueError("`max_iter` cannot be negative")
+
+        if self.cov_type not in ("nonrobust", "robust", "cluster"):
+            raise ValueError(
+                ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
+            )
+
+        if self.solver not in ("cd", "cvxpy"):
+            raise ValueError("solver must be one of 'cd', 'cvxpy'")
+
+        if self.c < 1:
+            warnings.warn(
+                "c should be greater than 1 for the regularization"
+                " event to hold asymptotically"
+            )
+
+        X, y = check_X_y(X, y, accept_sparse=False)
+
         n, p = X.shape
+
+        self.n_samples_, self.n_features_in_ = X.shape
+
+        # check random state
+        self.random_state_ = check_random_state(self.random_state)
+
+        if self.prestd:
+            X, y, X_mean, y_mean, X_std, y_std = self._standardize(X, y)
 
         # set default gamma if not provided
         if gamma is None:
@@ -364,11 +426,8 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         # intercept handling
         if self.fit_intercept:
-            p += 1
-            corr_range = np.arange(1, p)
-            X = np.c_[np.ones(X.shape[0]), X]
-        else:
-            corr_range = np.arange(p)
+            X_mean, y_mean = np.mean(X, axis=0), np.mean(y)
+            X, y = X - X_mean, y - y_mean
 
         if self.solver == "cd":
             # precompute XX and Xy crossprods
@@ -403,7 +462,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                     opt_tol=self.cd_tol,
                     zero_tol=self.zero_tol,
                 )
-            elif self.solver == "cvxpy":
+            else:
                 beta = self._cvxpy_solver(
                     X=X,
                     y=y,
@@ -416,12 +475,19 @@ class Rlasso(BaseEstimator, RegressorMixin):
             if self.post:
                 beta = self._post_lasso(beta, X, y)
 
-            return {"beta": beta, "lambd": lambd, "psi": psi, "n_iter": 0}
+            self.intercept_ = y_mean - X_mean @ beta if self.fit_intercept else 0.0
+            self.nonzero_indices_ = np.where(beta != 0)[0]
+            self.coef_ = beta
+            self.n_iter_ = 1
+            self.lambd_ = lambd
+            self.psi_ = psi
+
+            return
 
         # calculate initial residuals based on top correlation
-        if n > 1 and corr_range.size > 1:
+        if n > 1 and self.n_corr > 1:
             r = np.empty(p)
-            for k in corr_range:
+            for k in range(p):
                 r[k] = np.abs(st.pearsonr(X[:, k], y)[0])
 
             X_top = X[:, np.argsort(r)[-self.n_corr :]]
@@ -461,6 +527,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 opt_tol=self.cd_tol,
                 zero_tol=self.zero_tol,
             )
+
         else:
             beta = self._cvxpy_solver(
                 X=X,
@@ -511,7 +578,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                     zero_tol=self.zero_tol,
                 )
 
-            elif self.solver == "cvxpy":
+            else:
                 beta = self._cvxpy_solver(
                     X=X,
                     y=y,
@@ -528,7 +595,16 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if self.post and not self.lasso_psi:
             beta = self._post_lasso(beta, X, y)
 
-        return {"beta": beta, "psi": psi, "lambd": lambd, "n_iter": k + 1}
+        # rescale beta if standardized
+        if self.prestd:
+            beta *= y_std / X_std
+
+        self.intercept_ = y_mean - X_mean @ beta if self.fit_intercept else 0.0
+        self.nonzero_indices_ = np.where(beta != 0)[0]
+        self.coef_ = beta
+        self.n_iter_ = k + 1
+        self.lambd_ = lambd
+        self.psi_ = psi
 
     def fit(self, X, y, *, gamma=None):
         """
@@ -549,28 +625,14 @@ class Rlasso(BaseEstimator, RegressorMixin):
             Returns self.
         """
 
-        # check input
-        X, y = check_X_y(X, y, accept_sparse=False)
-
-        res = self._fit(X, y, gamma)
-        if self.fit_intercept:
-            self.intercept_ = res["beta"][0]
-            self.coef_ = res["beta"][1:]
-        else:
-            self.coef_ = res["beta"]
-            self.intercept_ = 0
-
-        self.psi_ = res["psi"]
-        self.lambd_ = res["lambd"]
-        self.n_iter_ = res["n_iter"]
+        self._fit(X, y, gamma=gamma)
 
         # sklearn estimator must return self
         return self
 
-    def fit_formula(self, formula, data):
+    def fit_formula(self, formula, data, *, gamma=None):
         """
         Fit the the model to the data using fomula language.
-
         Parameters
         ----------
         formula: str
@@ -594,13 +656,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         X, y = np.asarray(X), np.asarray(y)
         y = y.flatten()
 
-        res = self._fit(X, y, gamma=None)
-
-        self.coef_ = res["beta"]
-        self.psi_ = res["psi"]
-        self.lambd_ = res["lambd"]
-        self.n_iter_ = res["n_iter"]
-
+        self._fit(X, y, gamma=gamma)
         # sklearn estimator must return self
         return self
 
@@ -621,7 +677,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         """
 
         # check if fitted
-        check_is_fitted(self, ["coef_"])
+        check_is_fitted(self)
         X = check_array(X)
 
         return self.intercept_ + X @ self.coef_
@@ -633,7 +689,7 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         post=True,
         fit_intercept=True,
         c=1.1,
-        gamma=None,
+        gamma=0.05,
         zero_tol=1e-4,
         solver_opts=None,
     ):
@@ -644,7 +700,7 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         self.c = c
         self.gamma = gamma
         self.zero_tol = zero_tol
-        self.solver_opts = solver_opts or {}
+        self.solver_opts = solver_opts
 
     def _criterion_function(self, X, y, beta, lambd, n, regularization=True):
         """Criterion function for the penalized Lasso Logistic Regression."""
@@ -663,7 +719,7 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         prob = cp.Problem(obj)
 
         # solve problem and return beta
-        prob.solve(**self.solver_opts)
+        prob.solve(**self.solver_opts or {})
         beta = beta.value
         beta[np.abs(beta) < self.zero_tol] = 0.0
 
