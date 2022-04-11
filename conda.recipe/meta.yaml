@@ -35,7 +35,7 @@ test:
   requires:
     - pytest
   source_files:
-    - tests/*.py
+    - tests/test_*.py
   imports:
     - rlassopy
   commands:
