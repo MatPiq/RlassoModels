@@ -30,6 +30,7 @@ requirements:
     - scikit-learn
     - patsy
     - cvxpy
+    - pandas
 
 test:
   requires:
