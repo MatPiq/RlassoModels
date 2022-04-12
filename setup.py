@@ -78,6 +78,7 @@ install_requires = [
     "scikit-learn",
     "cvxpy",
     "patsy",
+    "pandas",
 ]
 
 setup(
