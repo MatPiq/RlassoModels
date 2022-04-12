@@ -3,6 +3,7 @@ import warnings
 import cvxpy as cp
 import numpy as np
 import numpy.linalg as la
+import pandas as pd
 import scipy.stats as st
 from _solver_fast import _cd_solver
 
@@ -69,6 +70,10 @@ class Rlasso(BaseEstimator, RegressorMixin):
         for the regularization event to hold asymptotically,
         but not too high as the shrinkage bias is increasing in c."
 
+    gamma: float, optional=None
+        Regularization parameter. If not provided
+        gamma is calculated as 0.1 / np.log(n_samples)
+
     max_iter: int, default=2
         Maximum number of iterations to perform in the iterative
         estimation procedure.
@@ -120,12 +125,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
     n_samples_: int
         Number of samples/observations in the input data.
 
-    endog_: str
+    feature_names_in_: str
         Name of the endogenous variable. Only stored if
         fit_formula method is used.
 
-    exog_: list[str]
-        Names of the exogenous variables. Only stored if
+    outcome_name_in_: list[str]
+        Name of the exogenous variables. Only stored if
         fit_formula method is used.
     """
 
@@ -145,6 +150,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         conv_tol=1e-4,
         n_sim=5000,
         c=1.1,
+        gamma=None,
         solver="cd",
         cd_max_iter=1000,
         cd_tol=1e-10,
@@ -165,6 +171,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.conv_tol = conv_tol
         self.n_sim = n_sim
         self.c = c
+        self.gamma = gamma
         self.solver = solver
         self.cd_max_iter = cd_max_iter
         self.cd_tol = cd_tol
@@ -218,7 +225,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self,
         n,
         p,
-        gamma,
         X,
         *,
         v=None,
@@ -232,6 +238,8 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         # TODO: Implement cluster robust case
 
+        # empirical gamma if not provided
+        gamma = self.gamma or 0.1 / np.log(n)
         if psi is not None:
             psi = np.diag(psi)
 
@@ -374,7 +382,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             return la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
 
-    def _fit(self, X, y, *, gamma=None):
+    def _fit(self, X, y, *, partial=None, cluster_var=None):
         """Helper function to fit the model."""
 
         if self.max_iter < 0:
@@ -394,18 +402,18 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 " event to hold asymptotically"
             )
 
-        X, y = check_X_y(X, y, accept_sparse=False)
+        if self.cov_type == "cluster" and cluster_var is None:
+            raise ValueError(
+                "cluster_vars must be specified for cluster robust penalty"
+            )
 
-        n, p = X.shape
+        X, y = check_X_y(X, y, accept_sparse=False, ensure_min_samples=2)
 
-        self.n_samples_, self.n_features_in_ = X.shape
+        p = self.n_features_in_ = X.shape[1]
+        n = X.shape[0]
 
         # check random state
         self.random_state_ = check_random_state(self.random_state)
-
-        # set default gamma if not provided
-        if gamma is None:
-            gamma = 0.1 / np.log(n)
 
         # intercept and pre-standardization handling
         if self.fit_intercept or self.prestd:
@@ -432,7 +440,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if self.sqrt and self.cov_type == "nonrobust" and not self.x_dependent:
 
             psi = self._psi_calc(X, n)
-            lambd = self._lambd_calc(n=n, p=p, gamma=gamma, X=X)
+            lambd = self._lambd_calc(n=n, p=p, X=X)
 
             if self.solver == "cd":
                 beta_ridge = self._starting_values(XX, Xy, lambd, psi)
@@ -468,7 +476,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 beta *= y_std / X_std
 
             self.intercept_ = y_mean - X_mean @ beta if self.fit_intercept else 0.0
-            self.nonzero_indices_ = np.where(beta != 0)[0]
+            self.nonzero_idx_ = np.where(beta != 0)[0]
             self.coef_ = beta
             self.n_iter_ = 1
             self.lambd_ = lambd
@@ -476,26 +484,21 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
             return
 
-        # calculate initial residuals based on top correlation
-        if n > 1 and self.n_corr > 1:
-            r = np.empty(p)
-            for k in range(p):
-                r[k] = np.abs(st.pearsonr(X[:, k], y)[0])
+        # calculate error based on initial
+        # highly correlated vars
+        r = np.empty(p)
+        for k in range(p):
+            r[k] = np.abs(st.pearsonr(X[:, k], y)[0])
 
-            X_top = X[:, np.argsort(r)[-self.n_corr :]]
-            beta0 = self._OLS(X_top, y)
-            v = y - X_top @ beta0
-        else:
-            beta0 = self._OLS(X, y)
-            v = y - X @ beta0
-
+        X_top = X[:, np.argsort(r)[-self.n_corr :]]
+        beta0 = self._OLS(X_top, y)
+        v = y - X_top @ beta0
         s1 = np.sqrt(np.mean(v**2))
 
         psi = self._psi_calc(X=X, v=v, n=n)
         lambd = self._lambd_calc(
             n=n,
             p=p,
-            gamma=gamma,
             v=v,
             s1=s1,
             X=X,
@@ -547,7 +550,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
             lambd = self._lambd_calc(
                 n=n,
                 p=p,
-                gamma=gamma,
                 v=v,
                 s1=s1,
                 X=X,
@@ -592,13 +594,13 @@ class Rlasso(BaseEstimator, RegressorMixin):
             beta *= y_std / X_std
 
         self.intercept_ = y_mean - X_mean @ beta if self.fit_intercept else 0.0
-        self.nonzero_indices_ = np.where(beta != 0)[0]
+        self.nonzero_idx_ = np.where(beta != 0)[0]
         self.coef_ = beta
-        self.n_iter_ = k + 1
+        self.n_iter_ = k + 1 if self.max_iter > 0 else 1
         self.lambd_ = lambd
         self.psi_ = psi
 
-    def fit(self, X, y, *, gamma=None):
+    def fit(self, X, y, *, partial=None):
         """
         Fit the model to the dataself.
 
@@ -608,8 +610,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
             Design matrix.
         y: array-like, shape (n_samples,)
             Target vector.
-        gamma: float, optional (default: 0.1 / np.log(n_samples))
-            Regularization parameter.
 
         returns
         -------
@@ -617,12 +617,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
             Returns self.
         """
 
-        self._fit(X, y, gamma=gamma)
+        self._fit(X, y)
 
         # sklearn estimator must return self
         return self
 
-    def fit_formula(self, formula, data, *, gamma=None):
+    def fit_formula(self, formula, data, *, partial=None):
         """
         Fit the the model to the data using fomula language.
         Parameters
@@ -642,13 +642,27 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         y, X = dmatrices(formula, data)
 
-        self.endog_ = y.design_info.column_names[0]
-        self.exog_ = X.design_info.column_names
+        self.feature_names_in_ = X.design_info.column_names
+        self.outcome_name_in_ = y.design_info.column_names
 
         X, y = np.asarray(X), np.asarray(y)
         y = y.flatten()
+        # check if intercept is in data
+        if "Intercept" in self.feature_names_in_:
+            if not self.fit_intercept:
+                raise ValueError(
+                    (
+                        "Intercept is in data but fit_intercept is False."
+                        " Set fit_intercept to True to fit intercept or"
+                        " update the formula to remove the intercept"
+                    )
+                )
+            # drop column of ones from X
+            # since intercept calculated in _fit
+            # by partialing out
+            X = X[:, 1:]
 
-        self._fit(X, y, gamma=gamma)
+        self._fit(X, y)
         # sklearn estimator must return self
         return self
 
@@ -802,52 +816,27 @@ class RlassoEffect:
     def __init__(
         self,
         *,
-        method="pdsl",
+        method="double-selection",
         post=True,
         sqrt=False,
         fit_intercept=True,
         cov_type="nonrobust",
         x_dependent=False,
+        random_state=None,
         lasso_psi=False,
+        prestd=False,
         n_corr=5,
-        max_iter=1,
-        max_iter_shooting=1000,
+        max_iter=2,
+        conv_tol=1e-4,
         n_sim=5000,
         c=1.1,
-        conv_tol=1e-4,
+        gamma=None,
+        solver="cd",
+        cd_max_iter=1000,
+        cd_tol=1e-10,
+        cvxpy_opts=None,
         zero_tol=1e-4,
-        opt_tol=1e-10,
     ):
-        if method not in ("pds", "po"):
-            raise ValueError("Selection method must be 'pds' or 'po'")
-
-        if cov_type not in ("nonrobust", "robust", "cluster"):
-            raise ValueError(
-                ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
-            )
-
-        if c < 1:
-            warnings.warn(
-                "c should be greater than 1 for the regularization"
-                " event to hold asymptotically"
-            )
-
-        self.rlasso = Rlasso(
-            post=post,
-            sqrt=sqrt,
-            fit_intercept=fit_intercept,
-            cov_type=cov_type,
-            x_dependent=x_dependent,
-            lasso_psi=lasso_psi,
-            n_corr=n_corr,
-            max_iter=max_iter,
-            max_iter_shooting=max_iter_shooting,
-            n_sim=n_sim,
-            c=c,
-            conv_tol=conv_tol,
-            zero_tol=zero_tol,
-            opt_tol=opt_tol,
-        )
 
         self.method = method
         self.post = post
@@ -855,35 +844,130 @@ class RlassoEffect:
         self.fit_intercept = fit_intercept
         self.cov_type = cov_type
         self.x_dependent = x_dependent
+        self.random_state = random_state
         self.lasso_psi = lasso_psi
+        self.prestd = prestd
         self.n_corr = n_corr
-        self.max_iter = max_iter
-        self.max_iter_shooting = max_iter_shooting
         self.n_sim = n_sim
         self.c = c
+        self.gamma = gamma
+        self.max_iter = max_iter
         self.conv_tol = conv_tol
+        self.solver = solver
+        self.cd_max_iter = cd_max_iter
+        self.cd_tol = cd_tol
         self.zero_tol = zero_tol
-        self.opt_tol = opt_tol
+        self.cvxpy_opts = cvxpy_opts
 
-        def _fit(self, X, y, d, *, gamma=None):
+        self.rlasso = Rlasso(
+            post=post,
+            sqrt=sqrt,
+            fit_intercept=fit_intercept,
+            cov_type=cov_type,
+            x_dependent=x_dependent,
+            random_state=random_state,
+            lasso_psi=lasso_psi,
+            prestd=prestd,
+            n_corr=n_corr,
+            n_sim=n_sim,
+            c=c,
+            gamma=gamma,
+            max_iter=max_iter,
+            conv_tol=conv_tol,
+            solver=solver,
+            cd_max_iter=cd_max_iter,
+            cd_tol=cd_tol,
+            cvxpy_opts=cvxpy_opts,
+        )
 
-            """
-            Fit the model to the data.
+    def _fit(self, X, y, d):
 
-            Parameters
-            ----------
-            X: array-like, shape (n_samples, n_features)
-                Design matrix.
-            y: array-like, shape (n_samples,)
-                Target vector.
-            d: array-like, shape (n_samples,)
-                Treatment vector.
-            gamma: float, optional (default: 0.1 / np.log(n_samples))
+        """
+        Fit the model to the data.
 
-            Returns
-            -------
-            """
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Design matrix.
+        y: array-like, shape (n_samples,)
+            Target vector.
+        d: array-like, shape (n_samples,)
+            Treatment vector.
+        gamma: float, optional (default: 0.1 / np.log(n_samples))
 
-            if self.method == "pds":
-                I1 = self.rlasso.fit(X, d, gamma=gamma)
-                I2 = self.rlasso.fit(X, y, gamma=gamma)
+        Returns
+        -------
+        """
+        if self.method not in ("double-selection", "partialing-out"):
+            raise ValueError(
+                "Selection method must be 'double-selection' or 'partialing-out'"
+            )
+
+        n, p = X.shape
+
+        if self.method == "double-selection":
+            I1 = self.rlasso.fit(X, d).nonzero_idx_
+            I2 = self.rlasso.fit(X, y).nonzero_idx_
+
+            I = np.union1d(I1, I2)
+
+            # assert I.shape[0] > 0
+            if I.shape[0] == 0:
+                raise ValueError("No features selected")
+
+            # reshape d to column vector if not already
+            if d.ndim == 1:
+                d = d[:, None]
+            # bind d and X and keep selected features
+            X = np.c_[d, X[:, I]]
+            beta1 = self.rlasso._OLS(X, y)
+            Xi = y - X @ beta1 * np.sqrt(n / (n - I.size))
+            alpha = beta1[0]
+            beta2 = self.rlasso._OLS(X[:, 1:], d)
+            print(d.shape, X.shape, beta2.shape)
+            v = d - X[:, 1:] @ beta2
+
+            var = ((1 / np.mean(v**2)) ** 2 * np.mean(v**2 * Xi**2)) / n
+            se = np.sqrt(var)
+            tval = alpha / se
+            pval = 2 * st.norm.ppf(-np.abs(tval))
+
+        # partialing-out
+        else:
+
+            beta1 = self.rlasso.fit(X, y).coef_
+            yr = y - X @ beta1
+            beta2 = self.rlasso.fit(X, d).coef_
+            dr = d - X @ beta2
+
+            alpha = self.rlasso._OLS(dr, yr)
+            var = np.var(yr.mean())
+
+        self.alpha_ = alpha
+        self.var_ = var
+        self.se_ = se
+        self.tval_ = tval
+        self.pval_ = pval
+
+    def fit(self, X, y, d):
+
+        self._fit(X, y, d)
+
+        return self
+
+    def summary(self):
+        """
+        Return a summary of the model.
+        """
+
+        check_is_fitted(self, "alpha_")
+
+        return pd.DataFrame(
+            {
+                "alpha": self.alpha_,
+                "var": self.var_,
+                "se": self.se_,
+                "tval": self.tval_,
+                "pval": self.pval_,
+            }
+        )
