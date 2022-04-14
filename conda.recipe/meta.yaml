@@ -31,6 +31,7 @@ requirements:
     - patsy
     - cvxpy
     - pandas
+    - tabulate
 
 test:
   requires:
