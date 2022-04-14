@@ -5,6 +5,7 @@ import numpy as np
 import numpy.linalg as la
 import pandas as pd
 import scipy.stats as st
+import statsmodels.api as sm
 from _solver_fast import _cd_solver
 
 # import solver
@@ -16,6 +17,7 @@ from sklearn.utils.validation import (
     check_random_state,
     check_X_y,
 )
+from statsmodels.iolib import SimpleTable
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
@@ -356,13 +358,13 @@ class Rlasso(BaseEstimator, RegressorMixin):
         """
         Solve the OLS problem
         """
+        # add dim if X is 1-d
+        if X.ndim == 1:
+            X = X[:, None]
         try:
             return la.solve(X.T @ X, X.T @ y)
         except la.LinAlgError:
-            warnings.warn(
-                "Singular matrix encountered. \
-                invoking lstsq solver for OLS"
-            )
+            warnings.warn("Singular matrix encountered. invoking lstsq solver for OLS")
             return la.lstsq(X, y, rcond=None)[0]
 
     def _post_lasso(self, beta, X, y):
@@ -816,7 +818,8 @@ class RlassoEffect:
     def __init__(
         self,
         *,
-        method="double-selection",
+        method="partialling-out",
+        significance_lvl=0.05,
         post=True,
         sqrt=False,
         fit_intercept=True,
@@ -839,6 +842,7 @@ class RlassoEffect:
     ):
 
         self.method = method
+        self.significance_lvl = significance_lvl
         self.post = post
         self.sqrt = sqrt
         self.fit_intercept = fit_intercept
@@ -880,8 +884,118 @@ class RlassoEffect:
             cvxpy_opts=cvxpy_opts,
         )
 
-    def _fit(self, X, y, d):
+    def _check_input(self, X, idx):
 
+        # check if str or int repass
+        # as list of str or int
+        if isinstance(idx, (int, str)):
+            self._check_input(X, [idx])
+        if isinstance(idx, list):
+            # check if elements are str or int
+            if all(isinstance(x, str) for x in idx):
+                if not isinstance(X, pd.DataFrame):
+                    raise ValueError(
+                        "X must be a pandas DataFrame if index is a list of str"
+                    )
+                # check if all str are in X
+                if any(x not in X.columns for x in idx):
+                    raise ValueError("Index must be a subset of DataFrame.columns")
+
+                exog_names = idx
+                control_names = [x for x in X.columns if x not in idx]
+                # get positions of exog_names in X
+                idx = [X.columns.get_loc(x) for x in idx]
+
+            elif all(isinstance(x, int) for x in idx):
+                # check that x are columns in X
+                if any(x not in range(X.shape[1]) for x in idx):
+                    raise ValueError("Index not in range of X")
+
+                exog_names = [f"x{k+1}" for k in idx]
+                control_names = [f"x{k+1}" for k in range(X.shape[1]) if k not in idx]
+
+            else:
+                raise ValueError("Index must be a list of str or int")
+
+        return exog_names, control_names
+
+    def _fit(self, X, y, idx):
+
+        # check inputs
+        self.exog_names_, self.control_names = self._check_input(X, idx)
+        self.dep_name_ = "y"
+        X, y = check_X_y(X, y)
+
+        if self.method not in ("double-selection", "partialling-out"):
+            raise ValueError(
+                "Selection method must be 'double-selection' or 'partialling-out'"
+            )
+
+        n, p = X.shape
+        self.n_obs_ = n
+        self.p_exog_ = len(idx)
+        self.p_controls_ = p - self.p_exog_
+
+        self.coef_ = np.empty(self.p_exog_)
+        self.se_ = np.empty(self.p_exog_)
+        self.t_val_ = np.empty(self.p_exog_)
+        self.p_val_ = np.empty(self.p_exog_)
+        self.ci_ = np.empty((self.p_exog_, 2))
+
+        for i, j in enumerate(idx):
+
+            Z = np.delete(X, j, axis=1)
+            d = X[:, j]
+
+            res = self._est_single_effect(Z, y, d)
+
+            self.coef_[i] = res["alpha"]
+            self.se_[i] = res["se"]
+            self.t_val_[i] = res["t"]
+            self.p_val_[i] = res["p"]
+            self.ci_[i] = res["ci"]
+
+    def _est_single_effect(self, X, y, d):
+
+        if self.method == "partialing-out":
+            lasso1 = self.rlasso.fit(X, y)
+            yr = y - lasso1.predict(X)
+            lasso2 = self.rlasso.fit(X, d)
+            dr = d - lasso2.predict(X)
+
+            ols = sm.OLS(exog=dr, endog=yr).fit()
+            alpha = ols.params[0]
+            s = np.var(yr - ols.predict(dr)) / np.sum((dr - dr.mean()) ** 2)
+            se = np.sqrt(s)
+            t = alpha / se
+
+        else:
+            I1 = self.rlasso.fit(X, d).nonzero_idx_
+            I2 = self.rlasso.fit(X, y).nonzero_idx_
+            I = np.union1d(I1, I2)
+
+            X = np.c_[d, X[:, I]]
+            reg1 = sm.OLS(y, X).fit()
+            alpha = reg1.params[0]
+            e = y - reg1.predict(X)
+            Xi = e * np.sqrt(self.n_obs_ / (self.n_obs_ - I.size - 1))
+
+            reg2 = sm.OLS(d, X[:, 1:]).fit()
+            v = d - reg2.predict(X[:, 1:])
+
+            var = (1 / np.mean(v**2)) ** 2 * np.mean(v**2 * Xi**2) / self.n_obs_
+
+        se = np.sqrt(var)
+        t = alpha / se
+        p = 2 * st.norm.ppf(-np.abs(t))
+        # if nan, set to 0
+        p = 0.0 if np.isnan(p) else p
+        q = se * st.norm.ppf(np.abs(1 - (self.significance_lvl / 2)))
+        ci = np.array([alpha - q, alpha + q])
+
+        return {"alpha": alpha, "se": se, "t": t, "p": p, "ci": ci}
+
+    def fit(self, X, y, d_idx):
         """
         Fit the model to the data.
 
@@ -891,67 +1005,14 @@ class RlassoEffect:
             Design matrix.
         y: array-like, shape (n_samples,)
             Target vector.
-        d: array-like, shape (n_samples,)
-            Treatment vector.
+        d_idx:
         gamma: float, optional (default: 0.1 / np.log(n_samples))
 
         Returns
         -------
         """
-        if self.method not in ("double-selection", "partialing-out"):
-            raise ValueError(
-                "Selection method must be 'double-selection' or 'partialing-out'"
-            )
 
-        n, p = X.shape
-
-        if self.method == "double-selection":
-            I1 = self.rlasso.fit(X, d).nonzero_idx_
-            I2 = self.rlasso.fit(X, y).nonzero_idx_
-
-            I = np.union1d(I1, I2)
-
-            # assert I.shape[0] > 0
-            if I.shape[0] == 0:
-                raise ValueError("No features selected")
-
-            # reshape d to column vector if not already
-            if d.ndim == 1:
-                d = d[:, None]
-            # bind d and X and keep selected features
-            X = np.c_[d, X[:, I]]
-            beta1 = self.rlasso._OLS(X, y)
-            Xi = y - X @ beta1 * np.sqrt(n / (n - I.size))
-            alpha = beta1[0]
-            beta2 = self.rlasso._OLS(X[:, 1:], d)
-            print(d.shape, X.shape, beta2.shape)
-            v = d - X[:, 1:] @ beta2
-
-            var = ((1 / np.mean(v**2)) ** 2 * np.mean(v**2 * Xi**2)) / n
-            se = np.sqrt(var)
-            tval = alpha / se
-            pval = 2 * st.norm.ppf(-np.abs(tval))
-
-        # partialing-out
-        else:
-
-            beta1 = self.rlasso.fit(X, y).coef_
-            yr = y - X @ beta1
-            beta2 = self.rlasso.fit(X, d).coef_
-            dr = d - X @ beta2
-
-            alpha = self.rlasso._OLS(dr, yr)
-            var = np.var(yr.mean())
-
-        self.alpha_ = alpha
-        self.var_ = var
-        self.se_ = se
-        self.tval_ = tval
-        self.pval_ = pval
-
-    def fit(self, X, y, d):
-
-        self._fit(X, y, d)
+        self._fit(X, y, d_idx)
 
         return self
 
@@ -960,14 +1021,31 @@ class RlassoEffect:
         Return a summary of the model.
         """
 
-        check_is_fitted(self, "alpha_")
+        check_is_fitted(self, "coef_")
 
-        return pd.DataFrame(
-            {
-                "alpha": self.alpha_,
-                "var": self.var_,
-                "se": self.se_,
-                "tval": self.tval_,
-                "pval": self.pval_,
-            }
-        )
+        from tabulate import tabulate
+
+        info_tbl = [
+            ["Dep. Variable:", "y"],
+            ["Model:", "sqrt-rlasso" if self.sqrt else "rlasso"],
+            ["Inference method:", self.method],
+            ["No. observations:", self.n_obs_],
+            ["No. controls:", self.p_controls_],
+        ]
+
+        # data table
+        headers = ["", "coef", "std err", "t", "P>|t|", "[0.025", "0.975]"]
+        data = np.c_[self.coef_, self.se_, self.t_val_, self.p_val_, self.ci_].tolist()
+        data_tbl = tabulate(
+            data, headers=headers, showindex=self.exog_names_, tablefmt="fancy_grid"
+        )  # .split_lines()
+
+        # set title and notes
+        tbl_width = len(data_tbl.splitlines()[0])
+        title = "REGRESSION RESULTS".center(tbl_width)
+
+        tab2 = tabulate(info_tbl, tablefmt="fancy_grid").center(tbl_width)
+
+        note1 = "[1] Standard Errors assume that the covariance matrix of the errors is correctly specified."
+        # print res
+        print(title, tab2, data_tbl, note1, sep="\n")
