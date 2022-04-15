@@ -80,6 +80,7 @@ install_requires = [
     "patsy",
     "pandas",
     "statsmodels",
+    "stargazer",
 ]
 
 setup(
