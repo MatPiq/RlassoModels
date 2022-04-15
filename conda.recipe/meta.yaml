@@ -31,7 +31,7 @@ requirements:
     - patsy
     - cvxpy
     - pandas
-    - tabulate
+    - statsmodels
 
 test:
   requires:

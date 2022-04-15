@@ -79,7 +79,7 @@ install_requires = [
     "cvxpy",
     "patsy",
     "pandas",
-    "tabulate",
+    "statsmodels",
 ]
 
 setup(
