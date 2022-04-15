@@ -17,7 +17,7 @@ from sklearn.utils.validation import (
     check_random_state,
     check_X_y,
 )
-from statsmodels.iolib import SimpleTable
+from stargazer.stargazer import Stargazer as SG
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
@@ -818,7 +818,6 @@ class RlassoEffect:
     def __init__(
         self,
         *,
-        method="partialling-out",
         significance_lvl=0.05,
         post=True,
         sqrt=False,
@@ -841,7 +840,6 @@ class RlassoEffect:
         zero_tol=1e-4,
     ):
 
-        self.method = method
         self.significance_lvl = significance_lvl
         self.post = post
         self.sqrt = sqrt
@@ -924,76 +922,38 @@ class RlassoEffect:
         # check inputs
         self.exog_names_, self.control_names = self._check_input(X, idx)
         self.dep_name_ = "y"
-        X, y = check_X_y(X, y)
+        # X, y = check_X_y(X, y)
 
-        if self.method not in ("double-selection", "partialling-out"):
-            raise ValueError(
-                "Selection method must be 'double-selection' or 'partialling-out'"
-            )
-
+        n_exog = len(idx)
         n, p = X.shape
-        self.n_obs_ = n
-        self.p_exog_ = len(idx)
-        self.p_controls_ = p - self.p_exog_
+        D = X[:, idx]
+        X = np.delete(X, idx, axis=1)
+        dr = np.empty((n, n_exog))
 
-        self.coef_ = np.empty(self.p_exog_)
-        self.se_ = np.empty(self.p_exog_)
-        self.t_val_ = np.empty(self.p_exog_)
-        self.p_val_ = np.empty(self.p_exog_)
-        self.ci_ = np.empty((self.p_exog_, 2))
+        reg1 = self.rlasso.fit(X, y)
+        yr = y - reg1.predict(X)
+        I = reg1.nonzero_idx_
 
-        for i, j in enumerate(idx):
+        for j in range(n_exog):
+            d_j = D[:, j]
+            reg2 = self.rlasso.fit(X, d_j)
+            dr[:, j] = d_j - reg2.predict(X)
+            # append new nonzero_idx_ vars
+            I = np.append(I, reg2.nonzero_idx_)
 
-            Z = np.delete(X, j, axis=1)
-            d = X[:, j]
+        # remove repeated indices
+        I = np.unique(I)
 
-            res = self._est_single_effect(Z, y, d)
+        X = np.c_[D, X[:, I]]
+        if self.fit_intercept:
+            X = sm.add_constant(X)
 
-            self.coef_[i] = res["alpha"]
-            self.se_[i] = res["se"]
-            self.t_val_[i] = res["t"]
-            self.p_val_[i] = res["p"]
-            self.ci_[i] = res["ci"]
+        # post-double-selection
+        pds = sm.OLS(y, X).fit()
+        # partialling-out
+        po = sm.OLS(yr, dr).fit()
 
-    def _est_single_effect(self, X, y, d):
-
-        if self.method == "partialing-out":
-            lasso1 = self.rlasso.fit(X, y)
-            yr = y - lasso1.predict(X)
-            lasso2 = self.rlasso.fit(X, d)
-            dr = d - lasso2.predict(X)
-
-            ols = sm.OLS(exog=dr, endog=yr).fit()
-            alpha = ols.params[0]
-            s = np.var(yr - ols.predict(dr)) / np.sum((dr - dr.mean()) ** 2)
-            se = np.sqrt(s)
-            t = alpha / se
-
-        else:
-            I1 = self.rlasso.fit(X, d).nonzero_idx_
-            I2 = self.rlasso.fit(X, y).nonzero_idx_
-            I = np.union1d(I1, I2)
-
-            X = np.c_[d, X[:, I]]
-            reg1 = sm.OLS(y, X).fit()
-            alpha = reg1.params[0]
-            e = y - reg1.predict(X)
-            Xi = e * np.sqrt(self.n_obs_ / (self.n_obs_ - I.size - 1))
-
-            reg2 = sm.OLS(d, X[:, 1:]).fit()
-            v = d - reg2.predict(X[:, 1:])
-
-            var = (1 / np.mean(v**2)) ** 2 * np.mean(v**2 * Xi**2) / self.n_obs_
-
-        se = np.sqrt(var)
-        t = alpha / se
-        p = 2 * st.norm.ppf(-np.abs(t))
-        # if nan, set to 0
-        p = 0.0 if np.isnan(p) else p
-        q = se * st.norm.ppf(np.abs(1 - (self.significance_lvl / 2)))
-        ci = np.array([alpha - q, alpha + q])
-
-        return {"alpha": alpha, "se": se, "t": t, "p": p, "ci": ci}
+        self.results_ = {"post-double-selection": pds, "partialling-out": po}
 
     def fit(self, X, y, d_idx):
         """
@@ -1016,36 +976,26 @@ class RlassoEffect:
 
         return self
 
-    def summary(self):
+    def summary(self, model="both"):
         """
         Return a summary of the model.
         """
 
-        check_is_fitted(self, "coef_")
+        check_is_fitted(self, "results_")
+        if model not in ("post-double-selection", "partialling-out", "both"):
+            raise ValueError(
+                "model must be 'post-double-selection', 'partialling-out', or 'both'"
+            )
 
-        from tabulate import tabulate
+        if model == "both":
+            res = SG(
+                [
+                    self.results_["post-double-selection"],
+                    self.results_["partialling-out"],
+                ]
+            )
 
-        info_tbl = [
-            ["Dep. Variable:", "y"],
-            ["Model:", "sqrt-rlasso" if self.sqrt else "rlasso"],
-            ["Inference method:", self.method],
-            ["No. observations:", self.n_obs_],
-            ["No. controls:", self.p_controls_],
-        ]
+        else:
+            res = self.results_[model].summary()
 
-        # data table
-        headers = ["", "coef", "std err", "t", "P>|t|", "[0.025", "0.975]"]
-        data = np.c_[self.coef_, self.se_, self.t_val_, self.p_val_, self.ci_].tolist()
-        data_tbl = tabulate(
-            data, headers=headers, showindex=self.exog_names_, tablefmt="fancy_grid"
-        )  # .split_lines()
-
-        # set title and notes
-        tbl_width = len(data_tbl.splitlines()[0])
-        title = "REGRESSION RESULTS".center(tbl_width)
-
-        tab2 = tabulate(info_tbl, tablefmt="fancy_grid").center(tbl_width)
-
-        note1 = "[1] Standard Errors assume that the covariance matrix of the errors is correctly specified."
-        # print res
-        print(title, tab2, data_tbl, note1, sep="\n")
+        return res
