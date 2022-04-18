@@ -5,10 +5,8 @@ import numpy as np
 import numpy.linalg as la
 import pandas as pd
 import scipy.stats as st
-import statsmodels.api as sm
 from _solver_fast import _cd_solver
-
-# import solver
+from linearmodels.iv import IV2SLS, compare
 from patsy import dmatrices
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 from sklearn.utils.validation import (
@@ -18,6 +16,7 @@ from sklearn.utils.validation import (
     check_X_y,
 )
 from stargazer.stargazer import Stargazer as SG
+from statsmodels.api import add_constant
 
 
 class Rlasso(BaseEstimator, RegressorMixin):
@@ -809,15 +808,12 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
         return np.log(self._decision_function(X, self.coef_))
 
 
-class RlassoEffect:
-
-    """
-    Rigorous Lasso IV Regression.
-    """
-
+class RlassoIV:
     def __init__(
         self,
         *,
+        select_X=True,
+        select_Z=True,
         significance_lvl=0.05,
         post=True,
         sqrt=False,
@@ -841,6 +837,8 @@ class RlassoEffect:
     ):
 
         self.significance_lvl = significance_lvl
+        self.select_X = select_X
+        self.select_Z = select_Z
         self.post = post
         self.sqrt = sqrt
         self.fit_intercept = fit_intercept
@@ -882,120 +880,194 @@ class RlassoEffect:
             cvxpy_opts=cvxpy_opts,
         )
 
-    def _check_input(self, X, idx):
+    def _check_inputs(self, X, y, D_exog, D_endog, Z):
+        """
+        Checks inputs before passed to fit. For now, data is converted to pd.DataFrame
+        as it simplifices keeping track of nonzero indices and varnames significantly.
+        """
 
-        # check if str or int repass
-        # as list of str or int
-        if isinstance(idx, (int, str)):
-            self._check_input(X, [idx])
-        if isinstance(idx, list):
-            # check if elements are str or int
-            if all(isinstance(x, str) for x in idx):
-                if not isinstance(X, pd.DataFrame):
-                    raise ValueError(
-                        "X must be a pandas DataFrame if index is a list of str"
-                    )
-                # check if all str are in X
-                if any(x not in X.columns for x in idx):
-                    raise ValueError("Index must be a subset of DataFrame.columns")
+        def _check_single(var, name):
+            if var is None:
+                return
+            if isinstance(var, pd.DataFrame):
+                return var
 
-                exog_names = idx
-                control_names = [x for x in X.columns if x not in idx]
-                # get positions of exog_names in X
-                idx = [X.columns.get_loc(x) for x in idx]
+            if isinstance(var, np.ndarray):
+                var = pd.DataFrame(var)
+                var.columns = [f"{name}{i}" for i in range(var.shape[1])]
+                return var
 
-            elif all(isinstance(x, int) for x in idx):
-                # check that x are columns in X
-                if any(x not in range(X.shape[1]) for x in idx):
-                    raise ValueError("Index not in range of X")
-
-                exog_names = [f"x{k+1}" for k in idx]
-                control_names = [f"x{k+1}" for k in range(X.shape[1]) if k not in idx]
+            elif isinstance(var, pd.core.series.Series):
+                return (
+                    pd.DataFrame(var)
+                    if var.name
+                    else pd.DataFrame(var, columns=[f"{name}"])
+                )
 
             else:
-                raise ValueError("Index must be a list of str or int")
+                raise TypeError(
+                    f"{name} must be a pandas dataframe or numpy array"
+                    f"got {type(var)}"
+                )
 
-        return exog_names, control_names
+        X = _check_single(X, "X")
+        y = _check_single(y, "y")
+        D_exog = _check_single(D_exog, "d_exog")
+        D_endog = _check_single(D_endog, "d_endog")
+        Z = _check_single(Z, "Z")
 
-    def _fit(self, X, y, idx):
+        return X, y, D_exog, D_endog, Z
+
+    def _select_hd_vars(
+        self, regressors, depvar, return_resid=False, return_fitted=False
+    ):
+        """
+        Selects high-dimensional variables from the regressors.
+        Returns nonzero idx, residuals and fitted values.
+        """
+        n, p = depvar.shape
+        selected = []
+
+        if return_resid:
+            resid = np.empty((n, p))
+        if return_fitted:
+            fitted = np.empty((n, p))
+
+        for j in range(p):
+            reg = self.rlasso.fit(regressors, depvar.iloc[:, j])
+            [selected.append(i) for i in regressors.iloc[:, reg.nonzero_idx_].columns]
+            pred = reg.predict(regressors)
+
+            if return_resid:
+                resid[:, j] = depvar.iloc[:, j] - pred
+
+            if return_fitted:
+                fitted[:, j] = pred
+
+        if return_resid and return_fitted:
+            return selected, resid, fitted
+        elif return_resid:
+            return selected, resid
+        elif return_fitted:
+            return selected, fitted
+        else:
+            return selected
+
+    def fit(
+        self,
+        X,
+        y,
+        D_exog=None,
+        D_endog=None,
+        Z=None,
+    ):
 
         # check inputs
-        self.exog_names_, self.control_names = self._check_input(X, idx)
-        self.dep_name_ = "y"
-        # X, y = check_X_y(X, y)
+        X, y, D_exog, D_endog, Z = self._check_inputs(X, y, D_exog, D_endog, Z)
 
-        n_exog = len(idx)
-        n, p = X.shape
-        D = X[:, idx]
-        X = np.delete(X, idx, axis=1)
-        dr = np.empty((n, n_exog))
+        # store varnames
+        # self.X_names_ = X.columns.tolist()
+        # self.y_name_ = y.columns.tolist()
+        # self.D_exog_names_ = D_exog.columns.tolist() if D_exog is not None else None
+        # self.D_endog_names_ = (
+        #     D_endog.columns.tolist() if D_endog is not None else None
+        # )
+        # self.Z_names_ = Z.columns.tolist() if Z is not None else None
+        X_selected = {}
 
-        reg1 = self.rlasso.fit(X, y)
-        yr = y - reg1.predict(X)
-        I = reg1.nonzero_idx_
+        if self.select_X:
+            # X_all_selected = []
+            # step 1 (PDS/CHS). Select HD controls for dep var w.r.t. HD Xs
+            X_selected["step_1"], rho_y = self._select_hd_vars(X, y, return_resid=True)
+            rho_y = pd.DataFrame(rho_y, columns=y.columns)
 
-        for j in range(n_exog):
-            d_j = D[:, j]
-            reg2 = self.rlasso.fit(X, d_j)
-            dr[:, j] = d_j - reg2.predict(X)
-            # append new nonzero_idx_ vars
-            I = np.append(I, reg2.nonzero_idx_)
+            # step 2 (PDS/CHS). Select HD controls for exog regressors w.r.t. HD Xs
+            if D_exog is not None:
+                X_selected["step_2"], rho_d = self._select_hd_vars(
+                    X, D_exog, return_resid=True
+                )
 
-        # remove repeated indices
-        I = np.unique(I)
+                rho_d = pd.DataFrame(rho_d, columns=D_exog.columns)
+                rho_d.index = D_exog.index
 
-        X = np.c_[D, X[:, I]]
+            # step 3 (PDS). Select HD controls for endog regressors w.r.t. HD Xs
+            if D_endog is not None:
+                X_selected["step_3"] = self._select_hd_vars(X, D_endog)
+
+        if self.select_Z:
+
+            # step 5 (PDS/CHS). Select HD controls for Z w.r.t. HD Xs
+            Z_selected, d_hat = self._select_hd_vars(
+                pd.concat([X, Z], axis=1), D_endog, return_fitted=True
+            )
+            d_hat = pd.DataFrame(d_hat)
+            Z = Z.loc[:, Z_selected]
+            # elif D_endog is not None:
+            #     self.X_selected_4_ = self._select_hd_vars(X, Z)
+            #     X_all_selected += self.X_selected_4_
+
+            # step 6 (CHS). Create optimal instrument for endog
+            X_selected["step_6"], iv_e = self._select_hd_vars(
+                X, d_hat, return_resid=True
+            )
+
+            # step 7 (CHS). Create orthogonalized endog
+            rho_e = pd.DataFrame(
+                D_endog.to_numpy() - (d_hat.to_numpy() - iv_e), columns=D_endog.columns
+            )
+
+        # fit CHS IV2SLS
+        chs = IV2SLS(
+            rho_y,
+            rho_d if "rho_d" in locals() else None,
+            rho_e if "rho_e" in locals() else None,
+            iv_e if "iv_e" in locals() else None,
+        ).fit()
+
+        # fit PDS IV2SLS
+        # get unique X selected
+        X_unique_mask = []
+        for var in X_selected.values():
+            X_unique_mask += var
+
+        X_unique_mask = list(set(X_unique_mask))
+
+        if not X_unique_mask:
+            raise ValueError("No HD variables selected")
+
+        if D_exog is not None:
+            X = pd.concat([D_exog, X], axis=1)
+
+        if self.select_X:
+            X = X.loc[:, X_unique_mask]
+
         if self.fit_intercept:
-            X = sm.add_constant(X)
+            X = add_constant(X)
 
-        # post-double-selection
-        pds = sm.OLS(y, X).fit()
-        # partialling-out
-        po = sm.OLS(yr, dr).fit()
+        pds = IV2SLS(
+            y,
+            X,
+            D_endog if D_endog is not None else None,
+            Z if Z is not None else None,
+        ).fit()
 
-        self.results_ = {"post-double-selection": pds, "partialling-out": po}
+        # store results
+        self.X_selected_ = X_selected
+        self.Z_selected_ = Z_selected
 
-    def fit(self, X, y, d_idx):
-        """
-        Fit the model to the data.
-
-        Parameters
-        ----------
-        X: array-like, shape (n_samples, n_features)
-            Design matrix.
-        y: array-like, shape (n_samples,)
-            Target vector.
-        d_idx:
-        gamma: float, optional (default: 0.1 / np.log(n_samples))
-
-        Returns
-        -------
-        """
-
-        self._fit(X, y, d_idx)
+        self.results_ = {"CHS": chs, "PDS": pds}
 
         return self
 
-    def summary(self, model="both"):
-        """
-        Return a summary of the model.
-        """
+    def summary(self):
 
         check_is_fitted(self, "results_")
-        if model not in ("post-double-selection", "partialling-out", "both"):
-            raise ValueError(
-                "model must be 'post-double-selection', 'partialling-out', or 'both'"
-            )
 
-        if model == "both":
-            res = SG(
-                [
-                    self.results_["post-double-selection"],
-                    self.results_["partialling-out"],
-                ]
-            )
-
-        else:
-            res = self.results_[model].summary()
-
-        return res
+        return compare(
+            {
+                "PDS": self.results_["PDS"],
+                "CHS": self.results_["CHS"],
+            },
+            stars=True,
+            precision="std_errors",
+        )
