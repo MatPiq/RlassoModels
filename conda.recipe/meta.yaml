@@ -32,7 +32,7 @@ requirements:
     - cvxpy
     - pandas
     - statsmodels
-    - stargazer
+    - linearmodels
 
 test:
   requires:
