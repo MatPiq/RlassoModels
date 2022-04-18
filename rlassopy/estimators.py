@@ -15,7 +15,6 @@ from sklearn.utils.validation import (
     check_random_state,
     check_X_y,
 )
-from stargazer.stargazer import Stargazer as SG
 from statsmodels.api import add_constant
 
 
@@ -103,7 +102,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
     zero_tol: float, default=1e-4
         Tolerance for the rounding of the coefficients to zero.
 
-    attributes
+    Attributes
     ----------
     coef_: numpy.array, shape (n_features,)
         Estimated coefficients.
@@ -133,6 +132,22 @@ class Rlasso(BaseEstimator, RegressorMixin):
     outcome_name_in_: list[str]
         Name of the exogenous variables. Only stored if
         fit_formula method is used.
+
+    References
+    ----------
+    Belloni, A., & Chernozhukov, V. (2013). Least squares after model selection
+        in high-dimensional sparse models. Bernoulli, 19(2), 521-547.
+
+    Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+        Square-root lasso: pivotal recovery of sparse signals via conic programming.
+        Biometrika, 98(4), 791-806.
+
+    Ahrens, A., Hansen, C. B., & Schaffer, M. E. (2020). lassopack: Model
+        selection and prediction with regularized regression in Stata.
+        The Stata Journal, 20(1), 176-235.
+
+    Chernozhukov, V., Hansen, C., & Spindler, M. (2016).
+        hdm: High-dimensional metrics. arXiv preprint arXiv:1608.00354.
     """
 
     def __init__(
@@ -809,12 +824,131 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
 
 
 class RlassoIV:
+    """
+    Rigorous Lasso estimator with theoretically justified
+    penalty levels and desirable convergence properties.
+
+    Parameters
+    ----------
+    select_X: bool, optional (default: True)
+        Whether to use lasso/post-lasso for feature
+        selection of high-dim controls.
+
+    select_Z: bool, optional (default: True)
+        Whether to use lasso/post-lasso for feature
+        selection of high-dim instruments.
+
+    post: bool, default=True
+        If True, post-lasso is used to estimate betas.
+
+    sqrt: bool, default=False
+        If True, sqrt lasso criterion is minimized:
+        loss = ||y - X @ beta||_2 / sqrt(n)
+        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+        Square-root lasso: pivotal recovery of sparse signals via
+        conic programming. Biometrika, 98(4), 791-806.
+
+    fit_intercept: bool, default=True
+        If True, unpenalized intercept is estimated.
+
+    cov_type: str, default="nonrobust"
+        Type of covariance matrix.
+        "nonrobust" - nonrobust covariance matrix
+        "robust" - robust covariance matrix
+        "cluster" - cluster robust covariance matrix
+
+    x_dependent: bool, default=False
+        If True, the less conservative lambda is estimated
+        by simulation using the conditional distribution of the
+        design matrix.
+
+    n_sim: int, default=5000
+        Number of simulations to be performed for x-dependent
+        lambda calculation.
+
+    random_state: int, default=None
+        Random seed used for simulations if `x_dependent` is True.
+
+    lasso_psi: bool, default=False
+        If True, post-lasso is not used to obtain the residuals
+        during the iterative estimation procedure.
+
+    n_corr: int, default=5
+        Number of correlated variables to be used in the
+        for initial calculation of the residuals.
+
+    c: float, default=1.1
+        slack parameter used for lambda calculation. From
+        Hansen et.al. (2020): "c needs to be greater than 1
+        for the regularization event to hold asymptotically,
+        but not too high as the shrinkage bias is increasing in c."
+
+    gamma: float, optional=None
+        Regularization parameter. If not provided
+        gamma is calculated as 0.1 / np.log(n_samples)
+
+    max_iter: int, default=2
+        Maximum number of iterations to perform in the iterative
+        estimation procedure.
+
+    conv_tol: float, default=1e-4
+        Tolerance for the convergence of the iterative estimation
+        procedure.
+
+    solver: str, default="cd"
+        Solver to be used for the iterative estimation procedure.
+        "cd" - coordinate descent
+        "cvxpy" - cvxpy solver
+
+    cd_max_iter: int, default=10000
+        Maximum number of iterations to perform in the shooting
+        algorithm.
+
+    cd_tol: float, default=1e-10
+        Tolerance for the coordinate descent algorithm.
+
+    cvxpy_opts: dict, default=None
+        Options to be passed to the cvxpy solver. See cvxpy documentation
+        for more details:
+        https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
+
+    zero_tol: float, default=1e-4
+        Tolerance for the rounding of the coefficients to zero.
+
+    Attributes
+    ----------
+    results_: dict["PDS", "CHS"]
+        Dictionary containing the 2-stage-least-squares estimates.
+        Values are `linearmodels.iv.IV2SLS` objects. See:
+        https://bashtage.github.io/linearmodels/iv/iv/linearmodels.iv.model.IV2SLS.html
+        https://bashtage.github.io/linearmodels/iv/examples/basic-examples.html
+
+    X_selected_: dict[list[str]]
+        List of selected controls for each stage in the estimation.
+
+    Z_selected_: list[str]
+        List of selected instruments.
+
+    References
+    ----------
+    Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
+        Post-selection and post-regularization inference in linear models with many controls and instruments.
+        American Economic Review, 105(5), 486-90.
+
+    Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
+        Inference on treatment effects after selection among high-dimensional controls.
+        The Review of Economic Studies, 81(2), 608-650.
+
+    Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
+        PDSLASSO: Stata module for post-selection and
+        post-regularization OLS or IV estimation and inference.
+    """
+
     def __init__(
         self,
         *,
         select_X=True,
         select_Z=True,
-        significance_lvl=0.05,
         post=True,
         sqrt=False,
         fit_intercept=True,
@@ -836,7 +970,6 @@ class RlassoIV:
         zero_tol=1e-4,
     ):
 
-        self.significance_lvl = significance_lvl
         self.select_X = select_X
         self.select_Z = select_Z
         self.post = post
@@ -964,15 +1097,7 @@ class RlassoIV:
 
         # check inputs
         X, y, D_exog, D_endog, Z = self._check_inputs(X, y, D_exog, D_endog, Z)
-
-        # store varnames
-        # self.X_names_ = X.columns.tolist()
-        # self.y_name_ = y.columns.tolist()
-        # self.D_exog_names_ = D_exog.columns.tolist() if D_exog is not None else None
-        # self.D_endog_names_ = (
-        #     D_endog.columns.tolist() if D_endog is not None else None
-        # )
-        # self.Z_names_ = Z.columns.tolist() if Z is not None else None
+        # store all the selected variables
         X_selected = {}
 
         if self.select_X:
@@ -1017,29 +1142,34 @@ class RlassoIV:
             )
 
         # fit CHS IV2SLS
+        # adjust for variation in naming
+        cov_type = "unadjusted" if self.cov_type == "none" else self.cov_type
+
         chs = IV2SLS(
             rho_y,
             rho_d if "rho_d" in locals() else None,
             rho_e if "rho_e" in locals() else None,
             iv_e if "iv_e" in locals() else None,
-        ).fit()
+        ).fit(cov_type=cov_type)
 
         # fit PDS IV2SLS
         # get unique X selected
         X_unique_mask = []
-        for var in X_selected.values():
-            X_unique_mask += var
+        for step, var in X_selected.items():
+            # only for chs
+            if step != "step_6":
+                X_unique_mask += var
 
         X_unique_mask = list(set(X_unique_mask))
 
         if not X_unique_mask:
             raise ValueError("No HD variables selected")
 
-        if D_exog is not None:
-            X = pd.concat([D_exog, X], axis=1)
-
         if self.select_X:
             X = X.loc[:, X_unique_mask]
+
+        if D_exog is not None:
+            X = pd.concat([D_exog, X], axis=1)
 
         if self.fit_intercept:
             X = add_constant(X)
@@ -1049,7 +1179,7 @@ class RlassoIV:
             X,
             D_endog if D_endog is not None else None,
             Z if Z is not None else None,
-        ).fit()
+        ).fit(cov_type=cov_type)
 
         # store results
         self.X_selected_ = X_selected
@@ -1071,3 +1201,7 @@ class RlassoIV:
             stars=True,
             precision="std_errors",
         )
+
+
+class RlassoPDS(RlassoIV):
+    pass
