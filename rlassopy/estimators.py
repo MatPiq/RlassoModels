@@ -854,6 +854,9 @@ class RlassoIV:
 
     post: bool, default=True
         If True, post-lasso is used to estimate betas.
+        Note that `post` will only affect the results
+        for the post-regularization (CHS) method
+        and not those of post-double-selection (pds).
 
     sqrt: bool, default=False
         If True, sqrt lasso criterion is minimized:
@@ -1034,8 +1037,9 @@ class RlassoIV:
 
     def _check_inputs(self, X, y, D_exog, D_endog, Z):
         """
-        Checks inputs before passed to fit. For now, data is converted to pd.DataFrame
-        as it simplifices keeping track of nonzero indices and varnames significantly.
+        Checks inputs before passed to fit. For now, data is
+        converted to pd.DataFrame's as it simplifices keeping track
+        of nonzero indices and varnames significantly.
         """
 
         def _check_single(var, name):
@@ -1138,6 +1142,9 @@ class RlassoIV:
             if D_endog is not None:
                 X_selected["step_3"] = self._select_hd_vars(X, D_endog)
 
+            # store all the selected X's
+            self.X_selected_ = X_selected
+
         if self.select_Z:
 
             # step 5 (PDS/CHS). Select HD controls for Z w.r.t. HD Xs
@@ -1160,9 +1167,12 @@ class RlassoIV:
                 D_endog.to_numpy() - (d_hat.to_numpy() - iv_e), columns=D_endog.columns
             )
 
+            # store all the selected instruments
+            self.Z_selected_ = Z_selected
+
         # fit CHS IV2SLS
         # adjust for variation in naming
-        cov_type = "unadjusted" if self.cov_type == "none" else self.cov_type
+        cov_type = "unadjusted" if self.cov_type == "nonrobust" else self.cov_type
 
         chs = IV2SLS(
             rho_y,
@@ -1199,10 +1209,6 @@ class RlassoIV:
             D_endog or None,
             Z or None,
         ).fit(cov_type=cov_type)
-
-        # store results
-        self.X_selected_ = X_selected
-        self.Z_selected_ = Z_selected
 
         self.results_ = {"CHS": chs, "PDS": pds}
 
@@ -1271,6 +1277,9 @@ class RlassoPDS(RlassoIV):
 
     post: bool, default=True
         If True, post-lasso is used to estimate betas.
+        Note that `post` will only affect the results
+        for the post-regularization (CHS) method
+        and not those of post-double-selection (pds).
 
     sqrt: bool, default=False
         If True, sqrt lasso criterion is minimized:
