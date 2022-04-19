@@ -60,6 +60,11 @@ class Rlasso(BaseEstimator, RegressorMixin):
         If True, post-lasso is not used to obtain the residuals
         during the iterative estimation procedure.
 
+    prestd: bool, default=False
+        If True, the data is prestandardized instead of
+        on the fly by penalty loadings. Currently only
+        supports homoscedastic case.
+
     n_corr: int, default=5
         Number of correlated variables to be used in the
         for initial calculation of the residuals.
@@ -412,15 +417,21 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if self.solver not in ("cd", "cvxpy"):
             raise ValueError("solver must be one of 'cd', 'cvxpy'")
 
+        if self.cov_type == "cluster" and cluster_var is None:
+            raise ValueError(
+                "cluster_vars must be specified for cluster robust penalty"
+            )
+
         if self.c < 1:
             warnings.warn(
                 "c should be greater than 1 for the regularization"
                 " event to hold asymptotically"
             )
 
-        if self.cov_type == "cluster" and cluster_var is None:
-            raise ValueError(
-                "cluster_vars must be specified for cluster robust penalty"
+        if self.prestd and self.cov_type in ("robust", "cluster"):
+            warnings.warn(
+                "prestd is not implemented for robust and cluster robust penalty. "
+                "Data is assumed to be homoscedastic."
             )
 
         X, y = check_X_y(X, y, accept_sparse=False, ensure_min_samples=2)
@@ -825,8 +836,11 @@ class RlassoLogit(BaseEstimator, ClassifierMixin):
 
 class RlassoIV:
     """
-    Rigorous Lasso estimator with theoretically justified
-    penalty levels and desirable convergence properties.
+    Rigorous Lasso for instrumental-variable estimation in
+    the presence of high-dimensional instruments and/or
+    controls. Uses the post-double-selection (PDS) and
+    post-regularization (CHS) methods for estimation, see
+    references below.
 
     Parameters
     ----------
@@ -872,6 +886,11 @@ class RlassoIV:
     lasso_psi: bool, default=False
         If True, post-lasso is not used to obtain the residuals
         during the iterative estimation procedure.
+
+    prestd: bool, default=False
+        If True, the data is prestandardized instead of
+        on the fly by penalty loadings. Currently only
+        supports homoscedastic case.
 
     n_corr: int, default=5
         Number of correlated variables to be used in the
@@ -1086,7 +1105,7 @@ class RlassoIV:
         else:
             return selected
 
-    def fit(
+    def _fit(
         self,
         X,
         y,
@@ -1177,8 +1196,8 @@ class RlassoIV:
         pds = IV2SLS(
             y,
             X,
-            D_endog if D_endog is not None else None,
-            Z if Z is not None else None,
+            D_endog or None,
+            Z or None,
         ).fit(cov_type=cov_type)
 
         # store results
@@ -1202,6 +1221,231 @@ class RlassoIV:
             precision="std_errors",
         )
 
+    def fit(self, X, y, D_exog=None, D_endog=None, Z=None):
+        """
+        Fit the model.
+
+        Parameters
+        ----------
+        X: pd.DataFrame
+            Independent variables.
+
+        y: pd.DataFrame
+            Dependent variables.
+
+        D_exog: pd.DataFrame
+            Exogenous regressors.
+
+        D_endog: pd.DataFrame
+            Endogenous regressors.
+
+        Z: pd.DataFrame
+            Instruments.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
+
+        return self._fit(X, y, D_exog, D_endog, Z)
+
 
 class RlassoPDS(RlassoIV):
-    pass
+    """
+    Rigorous Lasso for causal inference of low-dimensional
+    exogenous regressors in the presence of high-dimensional
+    controls. Uses the post-double-selection (PDS) and
+    post-regularization (CHS) methods for estimation, see
+    references below.
+
+    Parameters
+    ----------
+    select_X: bool, optional (default: True)
+        Whether to use lasso/post-lasso for feature
+        selection of high-dim controls.
+
+    select_Z: bool, optional (default: True)
+        Whether to use lasso/post-lasso for feature
+        selection of high-dim instruments.
+
+    post: bool, default=True
+        If True, post-lasso is used to estimate betas.
+
+    sqrt: bool, default=False
+        If True, sqrt lasso criterion is minimized:
+        loss = ||y - X @ beta||_2 / sqrt(n)
+        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+        Square-root lasso: pivotal recovery of sparse signals via
+        conic programming. Biometrika, 98(4), 791-806.
+
+    fit_intercept: bool, default=True
+        If True, unpenalized intercept is estimated.
+
+    cov_type: str, default="nonrobust"
+        Type of covariance matrix.
+        "nonrobust" - nonrobust covariance matrix
+        "robust" - robust covariance matrix
+        "cluster" - cluster robust covariance matrix
+
+    x_dependent: bool, default=False
+        If True, the less conservative lambda is estimated
+        by simulation using the conditional distribution of the
+        design matrix.
+
+    n_sim: int, default=5000
+        Number of simulations to be performed for x-dependent
+        lambda calculation.
+
+    random_state: int, default=None
+        Random seed used for simulations if `x_dependent` is True.
+
+    lasso_psi: bool, default=False
+        If True, post-lasso is not used to obtain the residuals
+        during the iterative estimation procedure.
+
+    prestd: bool, default=False
+        If True, the data is prestandardized instead of
+        on the fly by penalty loadings. Currently only
+        supports homoscedastic case.
+
+    n_corr: int, default=5
+        Number of correlated variables to be used in the
+        for initial calculation of the residuals.
+
+    c: float, default=1.1
+        slack parameter used for lambda calculation. From
+        Hansen et.al. (2020): "c needs to be greater than 1
+        for the regularization event to hold asymptotically,
+        but not too high as the shrinkage bias is increasing in c."
+
+    gamma: float, optional=None
+        Regularization parameter. If not provided
+        gamma is calculated as 0.1 / np.log(n_samples)
+
+    max_iter: int, default=2
+        Maximum number of iterations to perform in the iterative
+        estimation procedure.
+
+    conv_tol: float, default=1e-4
+        Tolerance for the convergence of the iterative estimation
+        procedure.
+
+    solver: str, default="cd"
+        Solver to be used for the iterative estimation procedure.
+        "cd" - coordinate descent
+        "cvxpy" - cvxpy solver
+
+    cd_max_iter: int, default=10000
+        Maximum number of iterations to perform in the shooting
+        algorithm.
+
+    cd_tol: float, default=1e-10
+        Tolerance for the coordinate descent algorithm.
+
+    cvxpy_opts: dict, default=None
+        Options to be passed to the cvxpy solver. See cvxpy documentation
+        for more details:
+        https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
+
+    zero_tol: float, default=1e-4
+        Tolerance for the rounding of the coefficients to zero.
+
+    Attributes
+    ----------
+    results_: dict["PDS", "CHS"]
+        Dictionary containing the 2-stage-least-squares estimates.
+        Values are `linearmodels.iv.IV2SLS` objects. See:
+        https://bashtage.github.io/linearmodels/iv/iv/linearmodels.iv.model.IV2SLS.html
+        https://bashtage.github.io/linearmodels/iv/examples/basic-examples.html
+
+    X_selected_: dict[list[str]]
+        List of selected controls for each stage in the estimation.
+
+    Z_selected_: list[str]
+        List of selected instruments.
+
+    References
+    ----------
+    Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
+        Post-selection and post-regularization inference in linear models with many controls and instruments.
+        American Economic Review, 105(5), 486-90.
+
+    Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
+        Inference on treatment effects after selection among high-dimensional controls.
+        The Review of Economic Studies, 81(2), 608-650.
+
+    Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
+        PDSLASSO: Stata module for post-selection and
+        post-regularization OLS or IV estimation and inference.
+    """
+
+    def __init__(
+        self,
+        post=True,
+        sqrt=False,
+        fit_intercept=True,
+        cov_type="nonrobust",
+        x_dependent=False,
+        random_state=None,
+        lasso_psi=False,
+        prestd=False,
+        n_corr=5,
+        max_iter=2,
+        conv_tol=1e-4,
+        n_sim=5000,
+        c=1.1,
+        gamma=None,
+        solver="cd",
+        cd_max_iter=1000,
+        cd_tol=1e-10,
+        cvxpy_opts=None,
+        zero_tol=1e-4,
+    ):
+
+        super().__init__(
+            select_X=True,
+            select_Z=False,
+            post=post,
+            sqrt=sqrt,
+            fit_intercept=fit_intercept,
+            cov_type=cov_type,
+            x_dependent=x_dependent,
+            random_state=random_state,
+            lasso_psi=lasso_psi,
+            prestd=prestd,
+            n_corr=n_corr,
+            max_iter=max_iter,
+            conv_tol=conv_tol,
+            n_sim=n_sim,
+            c=c,
+            gamma=gamma,
+            solver=solver,
+            cd_max_iter=cd_max_iter,
+            cd_tol=cd_tol,
+            cvxpy_opts=cvxpy_opts,
+            zero_tol=zero_tol,
+        )
+
+    def fit(self, X, y, D_exog):
+        """
+        Fit the model.
+
+        Parameters
+        ----------
+        X: pd.DataFrame
+            Independent variables.
+
+        y: pd.DataFrame
+            Dependent variables.
+
+        D_exog: pd.DataFrame
+            Exogenous regressors.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
+
+        return self._fit(X, y, D_exog)
