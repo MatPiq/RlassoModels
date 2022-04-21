@@ -28,13 +28,13 @@
 The package implements rigorous Lasso for estimation and inference in high-dimensional datasets. 
 It aims to provide a Python alternative to the existing stata packages [`lassopack`](https://statalasso.github.io/docs/lassopack/) and
 [pdslasso](https://statalasso.github.io/docs/pdslasso/) (Ahrens, Hansen & Schaffer, 2018, 2020) and the R package 
-[HDM](https://CRAN.R-project.org/package=hdm) (Chernozkukov, Hansen & Spindler). API documentation is available in the [`RlassoModels`](https://RlassoModels.readthedocs.io/en/latest/). For a general introduction to the methods, I suggest the accompanying papers to lassopack and HDM.
+[HDM](https://CRAN.R-project.org/package=hdm) (Chernozkukov, Hansen & Spindler, 2016). Documentation is available at [RlassoModels](https://RlassoModels.readthedocs.io/en/latest/). For a general introduction to the methods, I suggest the accompanying papers to lassopack and HDM.
 
 ## Main features
 
 The class `Rlasso` is a [scikit-learn](https://scikit-learn.org/stable/) compatible estimator that implements the lasso
-and square-root lasso with a data-driven and theoretically justified penalty level. `RlassoPDS` and `RlassoIV` extend
-`Rlasso` and implement the post-double-selection and post-regularization inference on low-dimensional variables in the
+and square-root lasso with data-driven and theoretically justified penalty level. `RlassoPDS` and `RlassoIV` extend
+`Rlasso` and implement post-double-selection and post-regularization/partialling-out inference on low-dimensional variables in the
 presence of high-dimensional controls and/or instruments. The theory was developed in series of papers 
 by Belloni et al. (2011, 2013, 2014) and Chernozhukov et al. (2015).
 

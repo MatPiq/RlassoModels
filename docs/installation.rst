@@ -2,10 +2,10 @@
 Installation
 #####################################
 
-`rlassopy` can be installed from source:
+RlassoModels can be installed from source:
 
-    $ git clone git@github.com:matpiq/RlassoModels.git
-    $ cd RlassoModels
-    $ pip install .
+    git clone git@github.com:matpiq/RlassoModels.git
+    cd RlassoModels
+    pip install .
 
 
