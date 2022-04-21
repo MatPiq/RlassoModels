@@ -26,7 +26,7 @@
 
 
 The package implements rigorous Lasso for estimation and inference in high-dimensional datasets. 
-It aims to provide a Python alternative to the existing stata packages [`lassopack`](https://statalasso.github.io/docs/lassopack/) and
+It aims to provide a Python alternative to the existing stata packages [lassopack](https://statalasso.github.io/docs/lassopack/) and
 [pdslasso](https://statalasso.github.io/docs/pdslasso/) (Ahrens, Hansen & Schaffer, 2018, 2020) and the R package 
 [HDM](https://CRAN.R-project.org/package=hdm) (Chernozkukov, Hansen & Spindler, 2016). Documentation is available at [RlassoModels](https://RlassoModels.readthedocs.io/en/latest/). For a general introduction to the methods, I suggest the accompanying papers to lassopack and HDM.
 
