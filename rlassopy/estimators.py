@@ -1254,26 +1254,25 @@ class RlassoIV:
 
         # fit PDS IV2SLS
         # get unique X selected
-        X_unique_mask = []
-        for step, var in X_selected.items():
-            # only for chs
-            if step != "step_6":
-                X_unique_mask += var
+        if self.select_X:
+            X_unique_mask = []
+            for step, var in X_selected.items():
+                # only for chs
+                if step != "step_6":
+                    X_unique_mask += var
 
-        X_unique_mask = list(set(X_unique_mask))
+            X_unique_mask = list(set(X_unique_mask))
+            if not X_unique_mask:
+                warnings.warn("No controls in X where selected")
+            X = X.loc[:, X_unique_mask]
 
-        if X_unique_mask:
-            if self.select_X:
-                X = X.loc[:, X_unique_mask]
+        if D_exog is not None:
+            X = pd.concat([D_exog, X], axis=1)
 
-            if D_exog is not None:
-                X = pd.concat([D_exog, X], axis=1)
-
-            if self.fit_intercept:
-                X = add_constant(X)
+        if self.fit_intercept:
+            X = add_constant(X)
 
         else:
-            warnings.warn("No controls in X where selected")
             X = D_exog if D_exog is not None else None
 
         pds = IV2SLS(
