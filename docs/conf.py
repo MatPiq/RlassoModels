@@ -146,7 +146,7 @@ html_style = "css/project-template.css"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_rtd_theme"
+html_theme = "alabaster"  # "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -244,8 +244,8 @@ latex_elements = {
 latex_documents = [
     (
         "index",
-        "project-template.tex",
-        "project-template Documentation",
+        "rlassomodels.tex",
+        "RlassoModels Documentation",
         "Matias Piqueras",
         "manual",
     ),
@@ -279,8 +279,8 @@ latex_documents = [
 man_pages = [
     (
         "index",
-        "project-template",
-        "project-template Documentation",
+        "rlassomodels",
+        "RlassoModels Documentation",
         ["Matias Piqueras"],
         1,
     )
@@ -298,12 +298,9 @@ man_pages = [
 texinfo_documents = [
     (
         "index",
-        "project-template",
-        "project-template Documentation",
         "Matias Piqueras",
-        "project-template",
-        "One line description of project.",
-        "Miscellaneous",
+        "rlassomodels",
+        "Rigorous Lasso Models",
     ),
 ]
 
