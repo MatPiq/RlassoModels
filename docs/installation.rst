@@ -2,10 +2,10 @@
 Installation
 #####################################
 
-`rlassopy` can be installed using pip::
+`rlassopy` can be installed from source:
 
-    $ pip install rlassopy 
+    $ git clone git@github.com:matpiq/RlassoModels.git
+    $ cd RlassoModels
+    $ pip install .
 
-or conda-forge::
 
-    $ conda install -c conda-forge rlassopy

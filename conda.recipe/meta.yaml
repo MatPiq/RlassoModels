@@ -1,5 +1,5 @@
 package:
-  name: rlassopy
+  name: RlassoModels
   version: 0.0.1
 
 source:
@@ -40,7 +40,7 @@ test:
   source_files:
     - tests/test_*.py
   imports:
-    - rlassopy
+    - rlassomodels
   commands:
     - pytest tests
 

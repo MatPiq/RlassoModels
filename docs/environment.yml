@@ -1,4 +1,4 @@
-name: rlassopy_env
+name: rlassomodels_env
 channels:
 - conda-forge
 - defaults
@@ -10,7 +10,7 @@ dependencies:
   - pip>=20.1
   - pybind11
   - scikit-build
-  # rlassopy requirements
+  # rlassomodels requirements
   - numpy
   - scipy
   - scikit-learn

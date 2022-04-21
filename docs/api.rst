@@ -4,7 +4,7 @@ API
 
 This is an example on how to document the API of your own project.
 
-.. currentmodule:: rlassopy
+.. currentmodule:: rlassomodels
 
 .. autosummary::
    :toctree: generated/

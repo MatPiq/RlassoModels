@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose, assert_equal
 
-from rlassopy import Rlasso
+from rlassomodels import Rlasso
 
 
 @pytest.fixture

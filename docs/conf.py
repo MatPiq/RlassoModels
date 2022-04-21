@@ -26,7 +26,7 @@ sys.path.append(os.path.abspath("../.."))
 
 # Add modules to be mocked to prevent dependency on external libraries
 # (see: https://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules)
-# autodoc_mock_imports = ["rlassopy"]
+# autodoc_mock_imports = ["rlassomodels"]
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -86,7 +86,7 @@ plot_gallery = True
 master_doc = "index"
 
 # General information about the project.
-project = "rlassopy"
+project = "RlassoModels"
 copyright = "Matias Piqueras"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -94,7 +94,7 @@ copyright = "Matias Piqueras"
 # built documents.
 #
 # The short X.Y version.
-from rlassopy import __version__
+from rlassomodels import __version__
 
 version = __version__
 # The full version, including alpha/beta/rc tags.
@@ -332,9 +332,9 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    "doc_module": "rlassopy",
+    "doc_module": "rlassomodels",
     "backreferences_dir": os.path.join("generated"),
-    "reference_url": {"rlassopy": None},
+    "reference_url": {"RlassoModels": None},
 }
 
 

@@ -58,7 +58,7 @@ class get_pybind_include(object):
 ext_modules = [
     Pybind11Extension(
         "_solver_fast",
-        ["rlassopy/_solver_fast.cpp"],
+        ["rlassomodels/_solver_fast.cpp"],
         include_dirs=[
             get_pybind_include(),
             get_pybind_include(user=True),
@@ -84,11 +84,11 @@ install_requires = [
 ]
 
 setup(
-    name="rlassopy",
+    name="RlassoModels",
     version=__version__,
     author="Matias Piqueras",
     author_email="matias@piqueras.se",
-    url="https://github.com/matpiq/rlassopy",
+    url="https://github.com/matpiq/rlassomodels",
     description="Rigorous Lasso in Python",
     long_description="",
     ext_modules=ext_modules,

@@ -14,7 +14,7 @@ Estimators
 Rlasso
 ~~~~~~~~~~
 
-RlassoEffects
+RlassoPDS
 ~~~~~~~~~~~~~
 
 RlassoIV
