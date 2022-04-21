@@ -1,12 +1,14 @@
 import numpy as np
 import numpy.linalg as la
+import pandas as pd
 import pytest
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_equal
 
 from rlassopy import Rlasso
 
 
-def belloni_dgf():
+@pytest.fixture
+def data_sparse():
     """
     Data-generating function following Belloni (2011).
     """
@@ -27,11 +29,67 @@ def belloni_dgf():
     return X, y, b, cx
 
 
-def test_cd_vs_cvxpy():
+@pytest.fixture
+def data_dummy():
+
+    np.random.seed(234923)
+    n = 100
+    p = 5
+    X = np.random.normal(size=(n, p))
+    b = np.ones(p)
+    y = X @ b
+
+    return X, y
+
+
+def test_post(data_dummy):
+    """
+    Test that post estimation yields expected OLS results.
+    """
+    X, y = data_dummy
+
+    # normal rlasso
+    post = Rlasso(post=True).fit(X, y)
+    sqrt_post = Rlasso(sqrt=True, post=True).fit(X, y)
+    ols = la.solve(X.T @ X, X.T @ y)
+
+    assert_allclose(post.coef_, ols, rtol=1e-3, atol=1e-3)
+    assert_allclose(sqrt_post.coef_, ols, rtol=1e-3, atol=1e-3)
+
+
+def test_prestd(data_dummy):
+    """Test that the pre-standardization yield
+    the same result as "on-the-fly" standardization.
+    through penalty loadings.
+    """
+    X, y = data_dummy
+    beta_psi = Rlasso(post=False, prestd=False).fit(X, y).coef_
+    beta_prestd = Rlasso(post=False, prestd=True).fit(X, y).coef_
+
+    assert_allclose(beta_psi, beta_prestd, rtol=1e-5, atol=1e-5)
+
+
+def test_formula(data_dummy):
+    """
+    Test that the formula parser works.
+    """
+    X, y = data_dummy
+    df = pd.DataFrame(np.c_[y, X])
+
+    df.columns = ["y"] + [f"x{i}" for i in range(X.shape[1])]
+    formula = "y ~ " + " + ".join(df.columns.tolist()[1:])
+
+    res1 = Rlasso().fit(X, y)
+    res2 = Rlasso().fit_formula(formula, data=df)
+
+    assert_equal(res1.coef_, res2.coef_)
+
+
+def test_cd_vs_cvxpy(data_sparse):
     """
     Test that the CD and CVXPY solvers give the same results.
     """
-    X, y, _, _ = belloni_dgf()
+    X, y, _, _ = data_sparse
 
     # rlasso
     res_cvxpy = Rlasso(post=False, solver="cvxpy").fit(X, y)
@@ -46,45 +104,14 @@ def test_cd_vs_cvxpy():
     assert_allclose(res_sqrt_cvxpy.coef_, res_sqrt_cd.coef_, atol=1e-5)
 
 
-def test_post():
-    """
-    Test that post estimation yields expected OLS results.
-    """
-    n = 100
-    p = 5
-    X = np.random.normal(size=(n, p))
-    b = np.ones(p)
-    y = X @ b
-
-    # normal rlasso
-    post = Rlasso(post=True).fit(X, y)
-    sqrt_post = Rlasso(sqrt=True, post=True).fit(X, y)
-    ols = la.inv(X.T @ X) @ X.T @ y
-
-    assert_allclose(post.coef_, ols)
-    assert_allclose(sqrt_post.coef_, ols)
-
-
-def test_prestd():
-    """Test that the pre-standardization yield
-    the same result as "on-the-fly" standardization.
-    through penalty loadings.
-    """
-    X, y, b, cx = belloni_dgf()
-    beta_psi = Rlasso(post=False, prestd=False).fit(X, y).coef_
-    beta_prestd = Rlasso(post=False, prestd=True).fit(X, y).coef_
-
-    assert_allclose(beta_psi, beta_prestd, rtol=1e-5, atol=1e-5)
-
-
-def test_rlasso_oracle():
+def test_rlasso_oracle(data_sparse):
     """
     Same test as `statsmodels.regression.tests_regression.test_sqrt_lasso`
     with addition of test for selected components.
     Based on SQUARE-ROOT LASSO: PIVOTAL RECOVERY OF SPARSE
     SIGNALS VIA CONIC PROGRAMMING, Belloni (2011), p.10.
     """
-    X, y, b, cx = belloni_dgf()
+    X, y, b, cx = data_sparse
     _, p = X.shape
 
     # Empirical risk ratio.
@@ -122,13 +149,13 @@ def test_rlasso_oracle():
         assert_allclose(res.coef_[:5], expected_params[post], rtol=1e-5, atol=1e-5)
 
 
-def test_sqrt_rlasso_oracle():
+def test_sqrt_rlasso_oracle(data_sparse):
     """
     Same as `test_rlasso_oracle` but with sqrt=True.
     Note empirical risk ratio is 3.5 and
     different from `test_rlasso_oracle`.
     """
-    X, y, b, cx = belloni_dgf()
+    X, y, b, cx = data_sparse
     _, p = X.shape
 
     # Empirical risk ratio. Note: statsmodels uses
@@ -167,7 +194,7 @@ def test_sqrt_rlasso_oracle():
         assert_allclose(res.coef_[:5], expected_params[post], rtol=1e-5, atol=1e-5)
 
 
-def test_rlasso_vs_lassopack():
+def test_rlasso_vs_lassopack(data_sparse):
     """
     Test that rlasso and lassopack implementation are equivalent
     on Belloni data. Stata specifications:
@@ -204,7 +231,7 @@ def test_rlasso_vs_lassopack():
         },
     }
 
-    X, y, _, _ = belloni_dgf()
+    X, y, _, _ = data_sparse
 
     for m_name, spec in comparison_tab.items():
 
