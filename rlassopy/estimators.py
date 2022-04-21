@@ -132,11 +132,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     feature_names_in_: str
         Name of the endogenous variable. Only stored if
-        fit_formula method is used.
-
-    outcome_name_in_: list[str]
-        Name of the exogenous variables. Only stored if
-        fit_formula method is used.
+        the input data is a pandas dataframe.
 
     References
     ----------
@@ -643,6 +639,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self: object
             Returns self.
         """
+        # store feature names if dataset is pandas
+        if isinstance(X, pd.DataFrame):
+            self.feature_names_ = X.columns
 
         self._fit(X, y)
 
@@ -665,12 +664,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
             Returns self.
         """
 
-        # TODO: Solution to handle intercept
-
         y, X = dmatrices(formula, data)
 
         self.feature_names_in_ = X.design_info.column_names
-        self.outcome_name_in_ = y.design_info.column_names
 
         X, y = np.asarray(X), np.asarray(y)
         y = y.flatten()
@@ -951,6 +947,10 @@ class RlassoIV:
     Z_selected_: list[str]
         List of selected instruments.
 
+    valid_vars_: list[str]
+        List of variables for which standard errors and test
+        statistics are valid.
+
     References
     ----------
     Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
@@ -1072,44 +1072,59 @@ class RlassoIV:
         D_endog = _check_single(D_endog, "d_endog")
         Z = _check_single(Z, "Z")
 
-        return X, y, D_exog, D_endog, Z
+        # save valid inference variables
+        valid_vars = []
+        if D_exog is not None:
+            valid_vars += list(D_exog.columns.tolist())
+        if D_endog is not None:
+            valid_vars += list(D_endog.columns.tolist())
 
-    def _select_hd_vars(
-        self, regressors, depvar, return_resid=False, return_fitted=False
-    ):
+        return X, y, D_exog, D_endog, Z, valid_vars
+
+    def _select_hd_vars(self, regressors, depvar):
         """
         Selects high-dimensional variables from the regressors.
         Returns nonzero idx, residuals and fitted values.
         """
         n, p = depvar.shape
         selected = []
-
-        if return_resid:
-            resid = np.empty((n, p))
-        if return_fitted:
-            fitted = np.empty((n, p))
+        resid = np.empty((n, p))
+        fitted = np.empty((n, p))
 
         for j in range(p):
             reg = self.rlasso.fit(regressors, depvar.iloc[:, j])
             [selected.append(i) for i in regressors.iloc[:, reg.nonzero_idx_].columns]
             pred = reg.predict(regressors)
+            resid[:, j] = depvar.iloc[:, j] - pred
+            fitted[:, j] = pred
 
-            if return_resid:
-                resid[:, j] = depvar.iloc[:, j] - pred
+        resid = pd.DataFrame(resid, columns=depvar.columns)
+        fitted = pd.DataFrame(fitted, columns=depvar.columns)
+        # return unique selected variables
+        selected = list(set(selected))
 
-            if return_fitted:
-                fitted[:, j] = pred
+        return selected, resid, fitted
 
-        if return_resid and return_fitted:
-            return selected, resid, fitted
-        elif return_resid:
-            return selected, resid
-        elif return_fitted:
-            return selected, fitted
-        else:
-            return selected
+    def _partial_ld_vars(self, regressors, depvar):
 
-    def _fit(
+        n, p = depvar.shape
+        resid = np.empty((n, p))
+        fitted = np.empty((n, p))
+
+        for j in range(p):
+            tmp_dep = depvar.iloc[:, j].to_numpy()
+            tmp_regressors = regressors.to_numpy()
+            beta = self.rlasso._OLS(tmp_regressors, tmp_dep)
+            pred = tmp_dep - tmp_regressors @ beta
+            fitted[:, j] = pred
+            resid[:, j] = depvar.iloc[:, j] - pred
+
+        resid = pd.DataFrame(resid, columns=depvar.columns)
+        fitted = pd.DataFrame(fitted, columns=depvar.columns)
+
+        return resid, fitted
+
+    def fit(
         self,
         X,
         y,
@@ -1117,68 +1132,124 @@ class RlassoIV:
         D_endog=None,
         Z=None,
     ):
+        """
+        Fit the model.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_controls)
+            Control variables. Potentially high-dimensional.
+
+        y: array-like, shape (n_samples,)
+            Outcome/dependent variable.
+
+        D_exog: array-like, shape (n_samples, n_exog)
+            Low-dimensionnal exogenous regressors. On which inference
+            is performed.
+
+        D_endog: array-like, shape (n_samples, n_endog)
+            Endogenous regressors. On which inference
+            is performed.
+
+        Z: array-like, shape (n_samples, n_instruments)
+            Instruments. Potentially high-dimensional.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
+        if self.select_Z and Z is None:
+            raise ValueError("`select_Z=True` but no instruments `Z` provided")
+
+        if Z is not None and D_endog is None:
+            raise ValueError("Endogenous regressors D_endog must be provided")
 
         # check inputs
-        X, y, D_exog, D_endog, Z = self._check_inputs(X, y, D_exog, D_endog, Z)
+        X, y, D_exog, D_endog, Z, self.valid_vars_ = self._check_inputs(
+            X, y, D_exog, D_endog, Z
+        )
+
+        if not self.select_X and X.shape[1] >= X.shape[0]:
+            warnings.warn("`select_X=False` but X has more variables than observations")
+
+        if not self.select_Z and Z.shape[1] >= Z.shape[0]:
+            warnings.warn(
+                "`select_Z=False` but Z has more instruments than observations"
+            )
+
         # store all the selected variables
         X_selected = {}
 
         if self.select_X:
             # X_all_selected = []
             # step 1 (PDS/CHS). Select HD controls for dep var w.r.t. HD Xs
-            X_selected["step_1"], rho_y = self._select_hd_vars(X, y, return_resid=True)
-            rho_y = pd.DataFrame(rho_y, columns=y.columns)
+            X_selected["step_1"], rho_y, _ = self._select_hd_vars(X, y)
 
             # step 2 (PDS/CHS). Select HD controls for exog regressors w.r.t. HD Xs
             if D_exog is not None:
-                X_selected["step_2"], rho_d = self._select_hd_vars(
-                    X, D_exog, return_resid=True
-                )
-
-                rho_d = pd.DataFrame(rho_d, columns=D_exog.columns)
-                rho_d.index = D_exog.index
+                X_selected["step_2"], rho_d, _ = self._select_hd_vars(X, D_exog)
 
             # step 3 (PDS). Select HD controls for endog regressors w.r.t. HD Xs
             if D_endog is not None:
-                X_selected["step_3"] = self._select_hd_vars(X, D_endog)
+                X_selected["step_3"], _, _ = self._select_hd_vars(X, D_endog)
 
             # store all the selected X's
             self.X_selected_ = X_selected
 
-        if self.select_Z:
+        # handle CHS residuals in the case of
+        # X's not being penalized `select_X=False`
+        else:
+            rho_y, _ = self._partial_ld_vars(X, y)
 
+            if D_exog is not None:
+                rho_d, _ = self._partial_ld_vars(X, D_exog)
+
+        if self.select_Z:
             # step 5 (PDS/CHS). Select HD controls for Z w.r.t. HD Xs
-            Z_selected, d_hat = self._select_hd_vars(
-                pd.concat([X, Z], axis=1), D_endog, return_fitted=True
+            Z_selected, _, d_hat = self._select_hd_vars(
+                pd.concat([Z, X], axis=1), D_endog
             )
-            d_hat = pd.DataFrame(d_hat)
+            Z_selected = [s for s in Z_selected if s in Z.columns]
             Z = Z.loc[:, Z_selected]
             # elif D_endog is not None:
             #     self.X_selected_4_ = self._select_hd_vars(X, Z)
             #     X_all_selected += self.X_selected_4_
 
             # step 6 (CHS). Create optimal instrument for endog
-            X_selected["step_6"], iv_e = self._select_hd_vars(
-                X, d_hat, return_resid=True
-            )
-
-            # step 7 (CHS). Create orthogonalized endog
-            rho_e = pd.DataFrame(
-                D_endog.to_numpy() - (d_hat.to_numpy() - iv_e), columns=D_endog.columns
-            )
+            X_selected["step_6"], iv_e, _ = self._select_hd_vars(X, d_hat)
+            # iv_e.columns = Z_selected
 
             # store all the selected instruments
             self.Z_selected_ = Z_selected
 
-        # fit CHS IV2SLS
-        # adjust for variation in naming
+            # step 7 (CHS). Create orthogonalized endog
+            rho_e = pd.DataFrame(
+                D_endog.to_numpy() - (d_hat.to_numpy() - iv_e),
+                columns=D_endog.columns,
+            )
+        # handle CHS residuals in the case of Z's not being
+        # penalized `select_Z=False`
+        elif D_endog is not None:
+            _, d_hat = self._partial_ld_vars(pd.concat([Z, X], axis=1), D_endog)
+
+            iv_e, _ = self._partial_ld_vars(X, d_hat)
+
+            # step 7 (CHS). Create orthogonalized endog
+            rho_e = pd.DataFrame(
+                D_endog.to_numpy() - (d_hat.to_numpy() - iv_e),
+                columns=D_endog.columns,
+            )
+
+        # adjust for variation in naming for homoscedastic case
         cov_type = "unadjusted" if self.cov_type == "nonrobust" else self.cov_type
 
+        # fit CHS IV2SLS
         chs = IV2SLS(
             rho_y,
             rho_d if "rho_d" in locals() else None,
             rho_e if "rho_e" in locals() else None,
-            iv_e if "iv_e" in locals() else None,
+            iv_e.to_numpy() if "iv_e" in locals() else None,
         ).fit(cov_type=cov_type)
 
         # fit PDS IV2SLS
@@ -1191,23 +1262,25 @@ class RlassoIV:
 
         X_unique_mask = list(set(X_unique_mask))
 
-        if not X_unique_mask:
-            raise ValueError("No HD variables selected")
+        if X_unique_mask:
+            if self.select_X:
+                X = X.loc[:, X_unique_mask]
 
-        if self.select_X:
-            X = X.loc[:, X_unique_mask]
+            if D_exog is not None:
+                X = pd.concat([D_exog, X], axis=1)
 
-        if D_exog is not None:
-            X = pd.concat([D_exog, X], axis=1)
+            if self.fit_intercept:
+                X = add_constant(X)
 
-        if self.fit_intercept:
-            X = add_constant(X)
+        else:
+            warnings.warn("No controls in X where selected")
+            X = D_exog if D_exog is not None else None
 
         pds = IV2SLS(
             y,
             X,
-            D_endog or None,
-            Z or None,
+            D_endog if D_endog is not None else None,
+            Z if Z is not None else None,
         ).fit(cov_type=cov_type)
 
         self.results_ = {"CHS": chs, "PDS": pds}
@@ -1215,6 +1288,10 @@ class RlassoIV:
         return self
 
     def summary(self):
+        """
+        Produces a summary of the results.
+
+        """
 
         check_is_fitted(self, "results_")
 
@@ -1227,35 +1304,6 @@ class RlassoIV:
             precision="std_errors",
         )
 
-    def fit(self, X, y, D_exog=None, D_endog=None, Z=None):
-        """
-        Fit the model.
-
-        Parameters
-        ----------
-        X: pd.DataFrame
-            Independent variables.
-
-        y: pd.DataFrame
-            Dependent variables.
-
-        D_exog: pd.DataFrame
-            Exogenous regressors.
-
-        D_endog: pd.DataFrame
-            Endogenous regressors.
-
-        Z: pd.DataFrame
-            Instruments.
-
-        Returns
-        -------
-        self : object
-            Returns the instance itself.
-        """
-
-        return self._fit(X, y, D_exog, D_endog, Z)
-
 
 class RlassoPDS(RlassoIV):
     """
@@ -1267,14 +1315,6 @@ class RlassoPDS(RlassoIV):
 
     Parameters
     ----------
-    select_X: bool, optional (default: True)
-        Whether to use lasso/post-lasso for feature
-        selection of high-dim controls.
-
-    select_Z: bool, optional (default: True)
-        Whether to use lasso/post-lasso for feature
-        selection of high-dim instruments.
-
     post: bool, default=True
         If True, post-lasso is used to estimate betas.
         Note that `post` will only affect the results
@@ -1371,14 +1411,15 @@ class RlassoPDS(RlassoIV):
     X_selected_: dict[list[str]]
         List of selected controls for each stage in the estimation.
 
-    Z_selected_: list[str]
-        List of selected instruments.
+    valid_vars_: list[str]
+        List of variables for which standard errors and test
+        statistics are valid.
 
     References
     ----------
     Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
-        Post-selection and post-regularization inference in linear models with many controls and instruments.
-        American Economic Review, 105(5), 486-90.
+        Post-selection and post-regularization inference in linear models with many
+        controls and instruments. American Economic Review, 105(5), 486-90.
 
     Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
         Inference on treatment effects after selection among high-dimensional controls.
@@ -1442,14 +1483,15 @@ class RlassoPDS(RlassoIV):
 
         Parameters
         ----------
-        X: pd.DataFrame
-            Independent variables.
+        X: array-like, shape (n_samples, n_controls)
+            High-dimensional control variables.
 
-        y: pd.DataFrame
-            Dependent variables.
+        y: array-like, shape (n_samples,)
+            Outcome/dependent variable.
 
-        D_exog: pd.DataFrame
-            Exogenous regressors.
+        D_exog: array-like, shape (n_samples, n_exog)
+            Low-dimensionnal exogenous regressors. On which inference
+            is performed.
 
         Returns
         -------
@@ -1457,4 +1499,4 @@ class RlassoPDS(RlassoIV):
             Returns the instance itself.
         """
 
-        return self._fit(X, y, D_exog)
+        return super().fit(X, y, D_exog)
