@@ -42,7 +42,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
         Type of covariance matrix.
         "nonrobust" - nonrobust covariance matrix
         "robust" - robust covariance matrix
-        "cluster" - cluster robust covariance matrix
 
     x_dependent: bool, default=False
         If True, the less conservative lambda is estimated
@@ -218,10 +217,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 psi = np.maximum(psi_1, psi_2)
             # clustered
             else:
-                raise NotImplementedError(
-                    "Cluster robust loadings not \
-                                                implemented"
-                )
+                raise NotImplementedError("Cluster robust loadings not implemented")
 
         elif self.cov_type == "nonrobust":
             psi = np.sqrt(np.mean(X**2, axis=0))
@@ -231,10 +227,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
             psi = np.sqrt(Xe2 / n)
 
         else:
-            raise NotImplementedError(
-                "Cluster robust loadings not \
-                                                implemented"
-            )
+            raise NotImplementedError("Cluster robust loadings not implemented")
 
         return psi
 
@@ -288,10 +281,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 lambd = lf * np.quantile(sims, 1 - gamma)
 
             else:
-                raise NotImplementedError(
-                    "Cluster robust penalty\
-                        not implemented"
-                )
+                raise NotImplementedError("Cluster robust penalty not implemented")
 
         else:
 
@@ -331,10 +321,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
             # heteroscedastic/cluster robust and x-dependent case
             else:
-                raise NotImplementedError(
-                    "Cluster robust \
-                        penalty not implemented"
-                )
+                raise NotImplementedError("Cluster robust penalty not implemented")
 
         return lambd
 
@@ -405,10 +392,8 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if self.max_iter < 0:
             raise ValueError("`max_iter` cannot be negative")
 
-        if self.cov_type not in ("nonrobust", "robust", "cluster"):
-            raise ValueError(
-                ("cov_type must be one of 'nonrobust', 'robust', 'cluster'")
-            )
+        if self.cov_type not in ("nonrobust", "robust"):
+            raise ValueError("cov_type must be one of 'nonrobust', 'robust'")
 
         if self.solver not in ("cd", "cvxpy"):
             raise ValueError("solver must be one of 'cd', 'cvxpy'")
@@ -426,7 +411,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         if self.prestd and self.cov_type in ("robust", "cluster"):
             warnings.warn(
-                "prestd is not implemented for robust and cluster robust penalty. "
+                "prestd is not implemented for robust penalty. "
                 "Data is assumed to be homoscedastic."
             )
 
@@ -1271,9 +1256,6 @@ class RlassoIV:
 
         if self.fit_intercept:
             X = add_constant(X)
-
-        else:
-            X = D_exog if D_exog is not None else None
 
         pds = IV2SLS(
             y,
