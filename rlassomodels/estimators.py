@@ -386,7 +386,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             return la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
 
-    def _fit(self, X, y, *, partial=None, cluster_var=None):
+    def _fit(self, X, y):
         """Helper function to fit the model."""
 
         if self.max_iter < 0:
@@ -397,11 +397,6 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         if self.solver not in ("cd", "cvxpy"):
             raise ValueError("solver must be one of 'cd', 'cvxpy'")
-
-        if self.cov_type == "cluster" and cluster_var is None:
-            raise ValueError(
-                "cluster_vars must be specified for cluster robust penalty"
-            )
 
         if self.c < 1:
             warnings.warn(
@@ -608,7 +603,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.lambd_ = lambd
         self.psi_ = psi
 
-    def fit(self, X, y, *, partial=None):
+    def fit(self, X, y):
         """
         Fit the model to the dataself.
 
@@ -633,7 +628,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         # sklearn estimator must return self
         return self
 
-    def fit_formula(self, formula, data, *, partial=None):
+    def fit_formula(self, formula, data):
         """
         Fit the the model to the data using fomula language.
         Parameters
@@ -1155,13 +1150,13 @@ class RlassoIV:
             X, y, D_exog, D_endog, Z
         )
 
-        if not self.select_X and X.shape[1] >= X.shape[0]:
-            warnings.warn("`select_X=False` but X has more variables than observations")
-
-        if not self.select_Z and Z.shape[1] >= Z.shape[0]:
-            warnings.warn(
-                "`select_Z=False` but Z has more instruments than observations"
-            )
+        # if X and not self.select_X and X.shape[1] >= X.shape[0]:
+        #     warnings.warn("`select_X=False` but X has more variables than observations")
+        #
+        # if Z and not self.select_Z and Z.shape[1] >= Z.shape[0]:
+        #     warnings.warn(
+        #         "`select_Z=False` but Z has more instruments than observations"
+        #     )
 
         # store all the selected variables
         X_selected = {}
