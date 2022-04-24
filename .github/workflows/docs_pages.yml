@@ -25,11 +25,11 @@ jobs:
     - name: Make executable
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: chmod +x doc/buildDocs.sh
+      run: chmod +x docs/buildDocs.sh
       shell: bash
 
     - name: Execute script to build our documentation and update pages
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: doc/buildDocs.sh
+      run: docs/buildDocs.sh
       shell: bash
