@@ -17,7 +17,7 @@ set -x
 ###################
  
 apt-get update
-apt-get -y install git rsync python3-pip python3-pyrsistent
+apt-get -y install git rsync python3-pip
 
 pip3 install -r docs/requirements.txt
 #####################

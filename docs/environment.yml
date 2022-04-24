@@ -1,0 +1,18 @@
+name: docs_env
+channels:
+- conda-forge
+- defaults
+dependencies:
+  # readthedocs requirements
+  - python=3.8
+  - cmake
+  - compilers
+  - pip>=20.1
+  - pybind11
+  - scikit-build
+  # rlassomodels requirements
+  - numpy
+  - scipy
+  - scikit-learn
+  - patsy
+  - pandas

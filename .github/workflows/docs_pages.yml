@@ -12,6 +12,14 @@ jobs:
     container: debian:buster-slim
  
     steps:
+
+    - name: Set up Python 3.10
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        activate-environment: test
+        environment-file: docs/environment.yml
+        python-version: 3.8
+        auto-activate-base: true
  
     - name: Prereqs
       env:
