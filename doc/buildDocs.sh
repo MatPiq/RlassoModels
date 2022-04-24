@@ -33,8 +33,8 @@ export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
  
 # build our documentation with sphinx (see docs/conf.py)
 # * https://www.sphinx-doc.org/en/master/usage/quickstart.html#running-the-build
-make -C docs clean
-make -C docs html
+make -C doc clean
+make -C doc html
  
 #######################
 # Update GitHub Pages #
@@ -44,7 +44,7 @@ git config --global user.name "${GITHUB_ACTOR}"
 git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
  
 docroot=`mktemp -d`
-rsync -av "docs/_build/html/" "${docroot}/"
+rsync -av "doc/_build/html/" "${docroot}/"
  
 pushd "${docroot}"
  
