@@ -22,8 +22,14 @@ jobs:
         git clone --depth 1 "https://token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" .
       shell: bash
  
-    - name: Execute script to build our documentation and update pages
+    - name: Add permisson to execute docs bash script
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: "git update-index --chmod=+x doc/buildDocs.sh"
+      shell: bash
+
+    - name: Execute script to build our documentation and update pages
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: "doc/buildDocs.sh"
       shell: bash
