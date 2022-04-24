@@ -7,3 +7,4 @@ ipython==7.16.3  # Required for syntax highlighting in nbsphinx
 sphinx-copybutton==0.3.1
 nbsphinx
 markupsafe==2.0.1
+pyrsistent
