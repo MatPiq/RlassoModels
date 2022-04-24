@@ -16,8 +16,8 @@ jobs:
     - name: Set up Python 3.10
       uses: conda-incubator/setup-miniconda@v2
       with:
-        activate-environment: docs_env
         environment-file: docs/environment.yml
+        activate-environment: docs_env
         python-version: 3.8
         auto-activate-base: false
  
