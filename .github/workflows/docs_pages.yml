@@ -32,8 +32,6 @@ jobs:
     #     pip install -r docs/requirements.txt
     - name: setup python env
       uses: actions/setup-python@v2
-      with:
-        python-version: "3.9"
       run: pip install --upgrade pip && pip install sphinx-gallery sphinx_retd_theme numpydoc pandoc ipyyhon nbsphinx markupsafe
  
     - name: Prereqs
