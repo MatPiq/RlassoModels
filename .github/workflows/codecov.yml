@@ -1,6 +1,6 @@
 # based on: https://github.com/codecov/codecov-action
 
-name: Example workflow for Codecov
+name: Codecov
 on: [push]
 jobs:
   run:
@@ -17,19 +17,16 @@ jobs:
       run: pip install .
     - name: Generate coverage report
       run: |
-        pip install pytest
-        pip install pytest-cov
+        pip install pytest pytest-cov coverage codecov
         pytest rlassomodels/tests --cov=./ --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
         version: "v0.1.15"
         directory: ./coverage/reports/
         env_vars: OS,PYTHON
         fail_ci_if_error: true
-        files: ./coverage1.xml,./coverage2.xml
-        flags: unittests
+          #files: ./coverage1.xml,./coverage2.xml
         name: codecov-umbrella
         path_to_write_report: ./coverage/codecov_report.txt
         verbose: true
