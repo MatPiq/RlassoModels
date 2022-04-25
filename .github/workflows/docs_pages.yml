@@ -30,8 +30,12 @@ jobs:
     #   run: |
     #     python -m pip install --upgrade pip
     #     pip install -r docs/requirements.txt
-    - name: setup python env
+    - name: Set up Python 3.8
       uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
       run: pip install --upgrade pip && pip install sphinx-gallery sphinx_retd_theme numpydoc pandoc ipyyhon nbsphinx markupsafe
  
     - name: Prereqs
