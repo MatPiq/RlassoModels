@@ -38,11 +38,11 @@ test:
   requires:
     - pytest
   source_files:
-    - tests/test_*.py
+    - rlassomodels/tests/test_*.py
   imports:
     - rlassomodels
   commands:
-    - pytest tests
+    - pytest rlassomodels/tests
 
 about:
   summary: Rigorous lasso estimation and inference
