@@ -4,8 +4,6 @@
 [![Docs Actions Status][actions-docs-badge]][actions-docs-link]
 [![Python](https://img.shields.io/badge/python-3.6%20%7C%203.8%20%7C%203.10-blue)](https://www.python.org)
 
-<!-- [![**Docs**][docs-link] -->
-
 
 [actions-badge]:           https://github.com/matpiq/RlassoModels/workflows/Tests/badge.svg
 [actions-conda-link]:      https://github.com/matpiq/RlassoModels/actions?query=workflow%3AConda
@@ -25,7 +23,7 @@
 [lassopack]: https://statalasso.github.io/docs/lassopack/
 [hdm]: https://CRAN.R-project.org/package=hdm
 
-Documentation: https://matpiq.github.io/rlassomodels/
+Documentation: https://matpiq.github.io/RlassoModels/
 
 The package implements rigorous Lasso for estimation and inference in high-dimensional datasets. 
 It aims to provide a Python alternative to the existing stata packages [lassopack](https://statalasso.github.io/docs/lassopack/) and
