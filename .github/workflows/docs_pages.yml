@@ -44,6 +44,11 @@ jobs:
       run: | 
         python -m pip install --upgrade pip 
         python -m pip install sphinx-gallery sphinx_rtd_theme numpydoc pandoc ipython nbsphinx markupsafe
+
+    - name: Install RlassoModels
+      run: | 
+        python -m pip install .
+
     
     
     - name: make the sphinx docs
