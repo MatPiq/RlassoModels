@@ -45,5 +45,5 @@ jobs:
         run: conda install -c ${CONDA_PREFIX}/conda-bld/ rlassomodels
 
       - name: Test
-        run: pytest tests
+        run: pytest rlassomodels/tests
 
