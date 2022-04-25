@@ -17,9 +17,9 @@ set -x
 ###################
  
 apt-get update
-apt-get -y install git rsync python3-pip
+apt-get -y install git rsync # python3-pip
 
-pip3 install -r docs/requirements.txt
+#pip3 install -r docs/requirements.txt
 # pip3 install --upgrade rinohtype pygments pyrsistent
 #####################
 # DECLARE VARIABLES #
