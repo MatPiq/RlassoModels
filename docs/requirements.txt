@@ -4,5 +4,5 @@ numpydoc
 pandoc==1.0.2  # Required for markdown cells in nbsphinx
 ipython==7.16.3  # Required for syntax highlighting in nbsphinx
 sphinx-copybutton==0.3.1
-nbsphinx==0.8.0
+nbsphinx==0.8.8
 markupsafe==2.0.1
