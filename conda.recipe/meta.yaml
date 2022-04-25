@@ -1,0 +1,49 @@
+package:
+  name: rlassomodels
+  version: 0.0.1
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: python -m pip install . -vvv
+
+
+requirements:
+  build:
+    - {{ compiler('cxx') }} #     - {{ compiler('cxx') }}
+
+  host:
+    - python
+    - pip
+    - scikit-build
+    - setuptools
+    - pybind11 >=2.6.0
+    - setuptools_scm
+    - requests
+
+  run:
+    - python
+    - numpy
+    - scipy
+    - scikit-learn
+    - patsy
+    - cvxpy
+    - pandas
+    - statsmodels
+    - linearmodels
+
+test:
+  requires:
+    - pytest
+  source_files:
+    - tests/test_*.py
+  imports:
+    - rlassomodels
+  commands:
+    - pytest tests
+
+about:
+  summary: Rigorous lasso estimation and inference
+  license_file: LICENSE

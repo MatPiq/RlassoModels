@@ -1,0 +1,14 @@
+[build-system]
+requires = [
+  "pip",
+  "wheel",
+  "pybind11",
+  "requests",
+  "setuptools_scm",
+  "scikit-build",
+]
+
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "black"
