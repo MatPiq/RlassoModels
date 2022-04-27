@@ -20,44 +20,45 @@ from statsmodels.api import add_constant
 
 class Rlasso(BaseEstimator, RegressorMixin):
     """
-    Rigorous Lasso estimator with theoretically justified
-    penalty levels and desirable convergence properties.
+    Rigorous Lasso and Sqrt-Lasso estimator with
+    theoretically motivated and data-driven penalty level.
 
     Parameters
     ----------
     post: bool, default=True
         If True, post-lasso is used to estimate betas.
+        Meaning, that features selected by rlasso are
+        estimated by OLS in the final model.
 
     sqrt: bool, default=False
-        If True, sqrt lasso criterion is minimized:
-        loss = ||y - X @ beta||_2 / sqrt(n)
-        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
-        Square-root lasso: pivotal recovery of sparse signals via
-        conic programming. Biometrika, 98(4), 791-806.
+        If True, square-root lasso criterion is minimized
+        is minimized instead of normal lasso. See _[1] and
+        notes below for details.
 
     fit_intercept: bool, default=True
-        If True, unpenalized intercept is estimated.
+        If True, an unpenalized intercept is estimated
+        by mean centering the data prior to estimation.
 
     cov_type: str, default="nonrobust"
-        Type of covariance matrix.
-        "nonrobust" - nonrobust covariance matrix
-        "robust" - robust covariance matrix
+        Type of covariance matrix. Right now the
+        supported types are: "nonrobust", "robust".
 
     x_dependent: bool, default=False
-        If True, the less conservative lambda is estimated
-        by simulation using the conditional distribution of the
-        design matrix.
+        If True, the alternative and less conservative lambda
+        is estimated by simulation using the conditional
+        distribution of the design matrix.
 
     n_sim: int, default=5000
         Number of simulations to be performed for x-dependent
         lambda calculation.
 
     random_state: int, default=None
-        Random seed used for simulations if `x_dependent` is True.
+        Random seed used for simulations if `x_dependent` is
+        set to `True`.
 
     lasso_psi: bool, default=False
-        If True, post-lasso is not used to obtain the residuals
-        during the iterative estimation procedure.
+        By default post-lasso is the default method for obtaining
+        residuals in the
 
     prestd: bool, default=False
         If True, the data is prestandardized instead of
@@ -65,22 +66,24 @@ class Rlasso(BaseEstimator, RegressorMixin):
         supports homoscedastic case.
 
     n_corr: int, default=5
-        Number of correlated variables to be used in the
+        Number of most correlated variables to be used in the
         for initial calculation of the residuals.
 
     c: float, default=1.1
-        slack parameter used for lambda calculation. From
-        Hansen et.al. (2020): "c needs to be greater than 1
-        for the regularization event to hold asymptotically,
-        but not too high as the shrinkage bias is increasing in c."
+        Slack parameter used in the lambda calculation. From
+        _[3] "c needs to be greater than 1 for the regularization
+        event to hold asymptotically, but not too high as the
+        shrinkage bias is increasing in c."
 
     gamma: float, optional=None
-        Regularization parameter. If not provided
-        gamma is calculated as 0.1 / np.log(n_samples)
+        Regularization parameter, where the probability of
+        selecting the correct model is given by 1-gamma.
+        If not specified, the the value is set to:
+        0.1 / np.log(n)
 
     max_iter: int, default=2
         Maximum number of iterations to perform in the iterative
-        estimation procedure.
+        estimation procedure to obtain the Rlasso estimates.
 
     conv_tol: float, default=1e-4
         Tolerance for the convergence of the iterative estimation
@@ -88,23 +91,24 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     solver: str, default="cd"
         Solver to be used for the iterative estimation procedure.
-        "cd" - coordinate descent
-        "cvxpy" - cvxpy solver
+        Alternatives are:
+        "cd" - coordinate descent method.
+        "cvxpy" - cvxpy solver.
 
     cd_max_iter: int, default=10000
-        Maximum number of iterations to perform in the shooting
-        algorithm.
+        Maximum number of iterations to be perform by the coordinate
+        descent algorithm before stopping.
 
     cd_tol: float, default=1e-10
-        Tolerance for the coordinate descent algorithm.
+        Convergence tolerance for the coordinate descent algorithm.
 
     cvxpy_opts: dict, default=None
-        Options to be passed to the cvxpy solver. See cvxpy documentation
-        for more details:
+        Additional options to be passed to the cvxpy solver. See cvxpy
+        documentation for more details:
         https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
 
     zero_tol: float, default=1e-4
-        Tolerance for the rounding of the coefficients to zero.
+        Tolerance for the rounding of estimated coefficients to zero.
 
     Attributes
     ----------
@@ -130,24 +134,51 @@ class Rlasso(BaseEstimator, RegressorMixin):
         Number of samples/observations in the input data.
 
     feature_names_in_: str
-        Name of the endogenous variable. Only stored if
-        the input data is a pandas dataframe.
+        Feature names of ``X``. Only stored if
+        the input data is of type  ``pd.DataFrame``.
+
+    Notes
+    -----
+
+    Rlasso minimizes the following loss function:
+
+        .. \widehat{\beta}_{\text {lasso }}(\lambda)=\arg \min \frac{1}{n}
+           \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime} \beta\right)^{2}+\frac{\lambda}{n}
+           \sum_{j=1}^{p} \psi_{j}\left|\beta_{j}\right|
+
+    or if ``sqrt=True``:
+
+        .. math:: \hat{\boldsymbol{\beta}}_{\sqrt{\text { lasso }}}=\arg
+           \min \sqrt{\frac{1}{n} \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime}
+           \beta\right)^{2}}+\frac{\lambda}{n} \sum_{j=1}^{p} \psi_{j}\left|\beta_{j}\right|
+
+    Where :math:`\psi_{j}` are regressor specific penalty loadings and
+    :math:`\lambda` is the overall penalty level.
 
     References
     ----------
-    Belloni, A., & Chernozhukov, V. (2013). Least squares after model selection
-        in high-dimensional sparse models. Bernoulli, 19(2), 521-547.
-
-    Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+    ... [1] Belloni, A., Chernozhukov, V., & Wang, L. (2011).
         Square-root lasso: pivotal recovery of sparse signals via conic programming.
         Biometrika, 98(4), 791-806.
 
-    Ahrens, A., Hansen, C. B., & Schaffer, M. E. (2020). lassopack: Model
+    ... [2] Belloni, A., & Chernozhukov, V. (2013). Least squares after model selection
+        in high-dimensional sparse models. Bernoulli, 19(2), 521-547.
+
+    ... [3] Ahrens, A., Hansen, C. B., & Schaffer, M. E. (2020). lassopack: Model
         selection and prediction with regularized regression in Stata.
         The Stata Journal, 20(1), 176-235.
 
-    Chernozhukov, V., Hansen, C., & Spindler, M. (2016).
+    ... [4] Chernozhukov, V., Hansen, C., & Spindler, M. (2016).
         hdm: High-dimensional metrics. arXiv preprint arXiv:1608.00354.
+
+    examples
+    --------
+    >>> import numpy as np
+    >>> from rlasso import Rlasso
+    >>> X = np.random.randn(100, 5)
+    >>> y = np.random.randn(100)
+    >>> rlasso = Rlasso()
+    >>> rlasso.fit(X, y)
     """
 
     def __init__(
@@ -605,7 +636,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     def fit(self, X, y):
         """
-        Fit the model to the dataself.
+        Fit the model to the data.
 
         parameters
         ----------
@@ -681,7 +712,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
         returns
         -------
-        y_pred: numpy.array, shape (n_samples,)
+        y_pred: array-like, shape (n_samples,)
             Predicted target values.
         """
 
