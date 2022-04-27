@@ -26,13 +26,14 @@ class Rlasso(BaseEstimator, RegressorMixin):
     Parameters
     ----------
     post: bool, default=True
-        If True, post-lasso is used to estimate betas.
-        Meaning, that features selected by rlasso are
-        estimated by OLS in the final model.
+        If True, post-lasso is used to estimate betas,
+        meaning that features selected by rlasso are
+        estimated by OLS in the final model, as outlined
+        in [2]_.
 
     sqrt: bool, default=False
         If True, square-root lasso criterion is minimized
-        is minimized instead of normal lasso. See _[1] and
+        is minimized instead of normal lasso. See [1]_ and
         notes below for details.
 
     fit_intercept: bool, default=True
@@ -71,7 +72,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     c: float, default=1.1
         Slack parameter used in the lambda calculation. From
-        _[3] "c needs to be greater than 1 for the regularization
+        [3]_ "c needs to be greater than 1 for the regularization
         event to hold asymptotically, but not too high as the
         shrinkage bias is increasing in c."
 
@@ -139,39 +140,37 @@ class Rlasso(BaseEstimator, RegressorMixin):
 
     Notes
     -----
-
     Rlasso minimizes the following loss function:
 
-        .. \widehat{\beta}_{\text {lasso }}(\lambda)=\arg \min \frac{1}{n}
-           \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime} \beta\right)^{2}+\frac{\lambda}{n}
-           \sum_{j=1}^{p} \psi_{j}\left|\beta_{j}\right|
+    .. math:: \widehat{\\beta}_{\\text{lasso }}(\lambda)=\\arg\min\\frac{1}{n}\sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime}\\beta\\right)^{2}+\\frac{\lambda}{n}\sum_{j=1}^{p} \psi_{j}\left|\\beta_{j}\\right|
 
-    or if ``sqrt=True``:
+    Or in the case of square-root lasso when ``sqrt=True``:
 
-        .. math:: \hat{\boldsymbol{\beta}}_{\sqrt{\text { lasso }}}=\arg
-           \min \sqrt{\frac{1}{n} \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime}
-           \beta\right)^{2}}+\frac{\lambda}{n} \sum_{j=1}^{p} \psi_{j}\left|\beta_{j}\right|
+    .. math:: \hat{\\boldsymbol{\\beta}}_{\sqrt{\\text { lasso }}}=\\arg \min \sqrt{\\frac{1}{n} \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime} \\beta\\right)^{2}}+\\frac{\lambda}{n} \sum_{j=1}^{p} \psi_{j}\left|\\beta_{j}\\right|
 
     Where :math:`\psi_{j}` are regressor specific penalty loadings and
-    :math:`\lambda` is the overall penalty level.
+    :math:`\lambda` is the overall penalty level. For an introduction to
+    the rigorous lasso algorithm to estimate the penalty loadings and
+    the overall penalty level see [3]_ and [4]_.
 
     References
     ----------
-    ... [1] Belloni, A., Chernozhukov, V., & Wang, L. (2011).
-        Square-root lasso: pivotal recovery of sparse signals via conic programming.
-        Biometrika, 98(4), 791-806.
 
-    ... [2] Belloni, A., & Chernozhukov, V. (2013). Least squares after model selection
-        in high-dimensional sparse models. Bernoulli, 19(2), 521-547.
+    .. [1] Belloni, A., Chernozhukov, V., & Wang, L. (2011).
+       Square-root lasso: pivotal recovery of sparse signals via conic programming.
+       Biometrika, 98(4), 791-806.
 
-    ... [3] Ahrens, A., Hansen, C. B., & Schaffer, M. E. (2020). lassopack: Model
-        selection and prediction with regularized regression in Stata.
-        The Stata Journal, 20(1), 176-235.
+    .. [2] Belloni, A., & Chernozhukov, V. (2013). Least squares after model selection
+       in high-dimensional sparse models. Bernoulli, 19(2), 521-547.
 
-    ... [4] Chernozhukov, V., Hansen, C., & Spindler, M. (2016).
-        hdm: High-dimensional metrics. arXiv preprint arXiv:1608.00354.
+    .. [3] Ahrens, A., Hansen, C. B., & Schaffer, M. E. (2020). lassopack: Model
+       selection and prediction with regularized regression in Stata.
+       The Stata Journal, 20(1), 176-235.
 
-    examples
+    .. [4] Chernozhukov, V., Hansen, C., & Spindler, M. (2016).
+       hdm: High-dimensional metrics. arXiv preprint arXiv:1608.00354.
+
+    Examples
     --------
     >>> import numpy as np
     >>> from rlasso import Rlasso
@@ -662,6 +661,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
     def fit_formula(self, formula, data):
         """
         Fit the the model to the data using fomula language.
+
         Parameters
         ----------
         formula: str
