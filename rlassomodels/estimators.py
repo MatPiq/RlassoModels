@@ -142,11 +142,13 @@ class Rlasso(BaseEstimator, RegressorMixin):
     -----
     Rlasso minimizes the following loss function:
 
-    .. math:: \widehat{\\beta}_{\\text{lasso }}(\lambda)=\\arg\min\\frac{1}{n}\sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime}\\beta\\right)^{2}+\\frac{\lambda}{n}\sum_{j=1}^{p} \psi_{j}\left|\\beta_{j}\\right|
+
+    .. math:: \widehat{\\beta} = \\arg \min \\frac{1}{n} \lVert y_i - x_i'\\beta \\rVert_2^2 +\\frac{\lambda}{n} \sum^p_{j=1}\psi_j|\\beta_j|
 
     Or in the case of square-root lasso when ``sqrt=True``:
 
-    .. math:: \hat{\\boldsymbol{\\beta}}_{\sqrt{\\text { lasso }}}=\\arg \min \sqrt{\\frac{1}{n} \sum_{i=1}^{n}\left(y_{i}-x_{i}^{\prime} \\beta\\right)^{2}}+\\frac{\lambda}{n} \sum_{j=1}^{p} \psi_{j}\left|\\beta_{j}\\right|
+    .. math:: \widehat{\\beta} = \\arg \min \\frac{1}{\sqrt{n}} \lVert y_i - x_i'\\beta \\rVert_2 + \\frac{\lambda}{n} \sum^p_{j=1}\psi_j|\\beta_j|
+
 
     Where :math:`\psi_{j}` are regressor specific penalty loadings and
     :math:`\lambda` is the overall penalty level. For an introduction to
