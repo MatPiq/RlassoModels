@@ -862,42 +862,40 @@ class RlassoIV:
         selection of high-dim instruments.
 
     post: bool, default=True
-        If True, post-lasso is used to estimate betas.
-        Note that `post` will only affect the results
-        for the post-regularization (CHS) method
-        and not those of post-double-selection (pds).
+        If True, post-lasso is used to estimate betas,
+        meaning that features selected by rlasso are
+        estimated by OLS in the final model, as outlined
+        in [2]_.
 
     sqrt: bool, default=False
-        If True, sqrt lasso criterion is minimized:
-        loss = ||y - X @ beta||_2 / sqrt(n)
-        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
-        Square-root lasso: pivotal recovery of sparse signals via
-        conic programming. Biometrika, 98(4), 791-806.
+        If True, square-root lasso criterion is minimized
+        is minimized instead of normal lasso. See [1]_ and
+        notes below for details.
 
     fit_intercept: bool, default=True
-        If True, unpenalized intercept is estimated.
+        If True, an unpenalized intercept is estimated
+        by mean centering the data prior to estimation.
 
     cov_type: str, default="nonrobust"
-        Type of covariance matrix.
-        "nonrobust" - nonrobust covariance matrix
-        "robust" - robust covariance matrix
-        "cluster" - cluster robust covariance matrix
+        Type of covariance matrix. Right now the
+        supported types are: "nonrobust", "robust".
 
     x_dependent: bool, default=False
-        If True, the less conservative lambda is estimated
-        by simulation using the conditional distribution of the
-        design matrix.
+        If True, the alternative and less conservative lambda
+        is estimated by simulation using the conditional
+        distribution of the design matrix.
 
     n_sim: int, default=5000
         Number of simulations to be performed for x-dependent
         lambda calculation.
 
     random_state: int, default=None
-        Random seed used for simulations if `x_dependent` is True.
+        Random seed used for simulations if `x_dependent` is
+        set to `True`.
 
     lasso_psi: bool, default=False
-        If True, post-lasso is not used to obtain the residuals
-        during the iterative estimation procedure.
+        By default post-lasso is the default method for obtaining
+        residuals in the
 
     prestd: bool, default=False
         If True, the data is prestandardized instead of
@@ -905,22 +903,24 @@ class RlassoIV:
         supports homoscedastic case.
 
     n_corr: int, default=5
-        Number of correlated variables to be used in the
+        Number of most correlated variables to be used in the
         for initial calculation of the residuals.
 
     c: float, default=1.1
-        slack parameter used for lambda calculation. From
-        Hansen et.al. (2020): "c needs to be greater than 1
-        for the regularization event to hold asymptotically,
-        but not too high as the shrinkage bias is increasing in c."
+        Slack parameter used in the lambda calculation. From
+        [3]_ "c needs to be greater than 1 for the regularization
+        event to hold asymptotically, but not too high as the
+        shrinkage bias is increasing in c."
 
     gamma: float, optional=None
-        Regularization parameter. If not provided
-        gamma is calculated as 0.1 / np.log(n_samples)
+        Regularization parameter, where the probability of
+        selecting the correct model is given by 1-gamma.
+        If not specified, the the value is set to:
+        0.1 / np.log(n)
 
     max_iter: int, default=2
         Maximum number of iterations to perform in the iterative
-        estimation procedure.
+        estimation procedure to obtain the Rlasso estimates.
 
     conv_tol: float, default=1e-4
         Tolerance for the convergence of the iterative estimation
@@ -928,23 +928,24 @@ class RlassoIV:
 
     solver: str, default="cd"
         Solver to be used for the iterative estimation procedure.
-        "cd" - coordinate descent
-        "cvxpy" - cvxpy solver
+        Alternatives are:
+        "cd" - coordinate descent method.
+        "cvxpy" - cvxpy solver.
 
     cd_max_iter: int, default=10000
-        Maximum number of iterations to perform in the shooting
-        algorithm.
+        Maximum number of iterations to be perform by the coordinate
+        descent algorithm before stopping.
 
     cd_tol: float, default=1e-10
-        Tolerance for the coordinate descent algorithm.
+        Convergence tolerance for the coordinate descent algorithm.
 
     cvxpy_opts: dict, default=None
-        Options to be passed to the cvxpy solver. See cvxpy documentation
-        for more details:
+        Additional options to be passed to the cvxpy solver. See cvxpy
+        documentation for more details:
         https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
 
     zero_tol: float, default=1e-4
-        Tolerance for the rounding of the coefficients to zero.
+        Tolerance for the rounding of estimated coefficients to zero.
 
     Attributes
     ----------
@@ -966,17 +967,40 @@ class RlassoIV:
 
     References
     ----------
-    Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
+    .. [1] Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
         Post-selection and post-regularization inference in linear models with many controls and instruments.
         American Economic Review, 105(5), 486-90.
 
-    Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
+    .. [2] Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
         Inference on treatment effects after selection among high-dimensional controls.
         The Review of Economic Studies, 81(2), 608-650.
 
-    Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
+    .. [3] Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
         PDSLASSO: Stata module for post-selection and
         post-regularization OLS or IV estimation and inference.
+
+    Notes
+    -----
+    ``RlassoIV`` is used when one wants to use instruments in order to
+    estimate low-dimensional endogenous variables in the setting
+
+    .. math:: y_{i}=\\alpha d_{i}+x_{i}^{\prime} \\beta+\\varepsilon_{i}
+    .. math:: d_{i}=x_{i}^{\prime} \gamma+z_{i}^{\prime} \delta+u_{i}
+
+    where :math:`d_{i}` is endogonous and `both instruments $z_i$ and and
+    controls $x_i$ are possibily high-dimensional.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from rlassomodels import RlassoIV
+    >>> X = np.random.randn(100, 20)
+    >>> Z = np.random.randn(100, 15)
+    >>> d_endog = np.random.randn(100)
+    >>> y = np.random.randn(100)
+    >>> # Fit the model, use rlasso to select both controls and instruments
+    >>> rlasso_iv = RlassoIV(select_X=True, select_Z=True)
+    >>> rlasso_iv.fit(X, y, D_exog = None, D_endog=d_endog, Z=Z)
     """
 
     def __init__(
@@ -1319,48 +1343,45 @@ class RlassoPDS(RlassoIV):
     Rigorous Lasso for causal inference of low-dimensional
     exogenous regressors in the presence of high-dimensional
     controls. Uses the post-double-selection (PDS) and
-    post-regularization (CHS) methods for estimation, see
-    references below.
+    post-regularization (CHS) methods for estimation [1]_, [2]_.
 
     Parameters
     ----------
     post: bool, default=True
-        If True, post-lasso is used to estimate betas.
-        Note that `post` will only affect the results
-        for the post-regularization (CHS) method
-        and not those of post-double-selection (pds).
+        If True, post-lasso is used to estimate betas,
+        meaning that features selected by rlasso are
+        estimated by OLS in the final model, as outlined
+        in [2]_.
 
     sqrt: bool, default=False
-        If True, sqrt lasso criterion is minimized:
-        loss = ||y - X @ beta||_2 / sqrt(n)
-        see: Belloni, A., Chernozhukov, V., & Wang, L. (2011).
-        Square-root lasso: pivotal recovery of sparse signals via
-        conic programming. Biometrika, 98(4), 791-806.
+        If True, square-root lasso criterion is minimized
+        is minimized instead of normal lasso. See [1]_ and
+        notes below for details.
 
     fit_intercept: bool, default=True
-        If True, unpenalized intercept is estimated.
+        If True, an unpenalized intercept is estimated
+        by mean centering the data prior to estimation.
 
     cov_type: str, default="nonrobust"
-        Type of covariance matrix.
-        "nonrobust" - nonrobust covariance matrix
-        "robust" - robust covariance matrix
-        "cluster" - cluster robust covariance matrix
+        Type of covariance matrix. Right now the
+        supported types are: "nonrobust", "robust".
 
     x_dependent: bool, default=False
-        If True, the less conservative lambda is estimated
-        by simulation using the conditional distribution of the
-        design matrix.
+        If True, the alternative and less conservative lambda
+        is estimated by simulation using the conditional
+        distribution of the design matrix.
 
     n_sim: int, default=5000
         Number of simulations to be performed for x-dependent
         lambda calculation.
 
     random_state: int, default=None
-        Random seed used for simulations if `x_dependent` is True.
+        Random seed used for simulations if `x_dependent` is
+        set to `True`.
 
     lasso_psi: bool, default=False
-        If True, post-lasso is not used to obtain the residuals
-        during the iterative estimation procedure.
+        By default post-lasso is the default method for obtaining
+        residuals in the
 
     prestd: bool, default=False
         If True, the data is prestandardized instead of
@@ -1368,22 +1389,24 @@ class RlassoPDS(RlassoIV):
         supports homoscedastic case.
 
     n_corr: int, default=5
-        Number of correlated variables to be used in the
+        Number of most correlated variables to be used in the
         for initial calculation of the residuals.
 
     c: float, default=1.1
-        slack parameter used for lambda calculation. From
-        Hansen et.al. (2020): "c needs to be greater than 1
-        for the regularization event to hold asymptotically,
-        but not too high as the shrinkage bias is increasing in c."
+        Slack parameter used in the lambda calculation. From
+        [3]_ "c needs to be greater than 1 for the regularization
+        event to hold asymptotically, but not too high as the
+        shrinkage bias is increasing in c."
 
     gamma: float, optional=None
-        Regularization parameter. If not provided
-        gamma is calculated as 0.1 / np.log(n_samples)
+        Regularization parameter, where the probability of
+        selecting the correct model is given by 1-gamma.
+        If not specified, the the value is set to:
+        0.1 / np.log(n)
 
     max_iter: int, default=2
         Maximum number of iterations to perform in the iterative
-        estimation procedure.
+        estimation procedure to obtain the Rlasso estimates.
 
     conv_tol: float, default=1e-4
         Tolerance for the convergence of the iterative estimation
@@ -1391,23 +1414,24 @@ class RlassoPDS(RlassoIV):
 
     solver: str, default="cd"
         Solver to be used for the iterative estimation procedure.
-        "cd" - coordinate descent
-        "cvxpy" - cvxpy solver
+        Alternatives are:
+        "cd" - coordinate descent method.
+        "cvxpy" - cvxpy solver.
 
     cd_max_iter: int, default=10000
-        Maximum number of iterations to perform in the shooting
-        algorithm.
+        Maximum number of iterations to be perform by the coordinate
+        descent algorithm before stopping.
 
     cd_tol: float, default=1e-10
-        Tolerance for the coordinate descent algorithm.
+        Convergence tolerance for the coordinate descent algorithm.
 
     cvxpy_opts: dict, default=None
-        Options to be passed to the cvxpy solver. See cvxpy documentation
-        for more details:
+        Additional options to be passed to the cvxpy solver. See cvxpy
+        documentation for more details:
         https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options
 
     zero_tol: float, default=1e-4
-        Tolerance for the rounding of the coefficients to zero.
+        Tolerance for the rounding of estimated coefficients to zero.
 
     Attributes
     ----------
@@ -1426,21 +1450,39 @@ class RlassoPDS(RlassoIV):
 
     References
     ----------
-    Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
+    .. [1] Chernozhukov, V., Hansen, C., & Spindler, M. (2015).
         Post-selection and post-regularization inference in linear models with many
         controls and instruments. American Economic Review, 105(5), 486-90.
 
-    Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
+    .. [2] Belloni, A., Chernozhukov, V., & Hansen, C. (2014).
         Inference on treatment effects after selection among high-dimensional controls.
         The Review of Economic Studies, 81(2), 608-650.
 
-    Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
+    .. [3] Ahrens, A., Hansen, C. B., & Schaffer, M. (2019).
         PDSLASSO: Stata module for post-selection and
         post-regularization OLS or IV estimation and inference.
-    """
 
-    for i in range(20):
-        print("")
+    Notes
+    -----
+    ``LassoPDS`` is used in the setting
+
+    .. math:: y_{i}=\\alpha d_{i}+x_{i}^{\prime} \\beta+\\varepsilon_{i}
+
+    Where :math:`d_{i}` is a scalar exogenous variable (can also be low-dimensional vector)
+    for which we are interested in a obtaining a consistent estimate with valid
+    standard errors and test statistics in the presence of high-dimensional :math:`x_i`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from rlassomodels import RlassoPDS
+    >>> X = np.random.randn(100, 20)
+    >>> d_exog = np.random.randn(100)
+    >>> y = np.random.randn(100)
+    >>> # Fit the model, use rlasso to select both controls and instruments
+    >>> rlasso_pds = RlassoPDS()
+    >>> rlasso_pds.fit(X, y, d_exog)
+    """
 
     def __init__(
         self,
