@@ -16,7 +16,7 @@
 
 
 
-# RlassoModels - Rigorous Lasso for Estimation and Inference in Python <a href="https://RlassoModels.readthedocs.io/en/latest/"><img src="https://raw.githubusercontent.com/matpiq/RlassoModels/master/docs/logo.svg" align="right" width = "120" /></a>
+# RlassoModels - Rigorous Lasso for Estimation and Inference in Python <a href="https://RlassoModels.readthedocs.io/en/latest/"><img src="https://raw.githubusercontent.com/matpiq/RlassoModels/master/docs/logo.png" align="right" width = "120" /></a>
 
 [RlassoModels]: https://RlassoModels.readthedocs.io/en/latest/
 [lassopack]: https://statalasso.github.io/docs/lassopack/
