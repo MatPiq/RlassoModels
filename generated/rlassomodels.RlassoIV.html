@@ -1,0 +1,305 @@
+
+<!DOCTYPE html>
+
+<html lang="Python">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>rlassomodels.RlassoIV &#8212; RlassoModels  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/js/copybutton.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="rlassomodels.RlassoPDS" href="rlassomodels.RlassoPDS.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="rlassomodels-rlassoiv">
+<h1><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.RlassoIV<a class="headerlink" href="#rlassomodels-rlassoiv" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="rlassomodels.RlassoIV">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">rlassomodels.</span></span><span class="sig-name descname"><span class="pre">RlassoIV</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_X</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">select_Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">post</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sqrt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_intercept</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nonrobust'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_dependent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lasso_psi</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prestd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_corr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conv_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cd'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cd_max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cd_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cvxpy_opts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/rlassomodels/estimators.html#RlassoIV"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#rlassomodels.RlassoIV" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Rigorous Lasso for instrumental-variable estimation in
+the presence of high-dimensional instruments and/or
+controls. Uses the post-double-selection (PDS) and
+post-regularization (CHS) methods for estimation, see
+references below.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>select_X: bool, optional (default: True)</strong></dt><dd><p>Whether to use lasso/post-lasso for feature
+selection of high-dim controls.</p>
+</dd>
+<dt><strong>select_Z: bool, optional (default: True)</strong></dt><dd><p>Whether to use lasso/post-lasso for feature
+selection of high-dim instruments.</p>
+</dd>
+<dt><strong>post: bool, default=True</strong></dt><dd><p>If True, post-lasso is used to estimate betas,
+meaning that features selected by rlasso are
+estimated by OLS in the final model, as outlined
+in <a class="reference internal" href="#rcafde14c0cd9-2" id="id1">[2]</a>.</p>
+</dd>
+<dt><strong>sqrt: bool, default=False</strong></dt><dd><p>If True, square-root lasso criterion is minimized
+is minimized instead of normal lasso. See <a class="reference internal" href="#rcafde14c0cd9-1" id="id2">[1]</a> and
+notes below for details.</p>
+</dd>
+<dt><strong>fit_intercept: bool, default=True</strong></dt><dd><p>If True, an unpenalized intercept is estimated
+by mean centering the data prior to estimation.</p>
+</dd>
+<dt><strong>cov_type: str, default=&quot;nonrobust&quot;</strong></dt><dd><p>Type of covariance matrix. Right now the
+supported types are: &quot;nonrobust&quot;, &quot;robust&quot;.</p>
+</dd>
+<dt><strong>x_dependent: bool, default=False</strong></dt><dd><p>If True, the alternative and less conservative lambda
+is estimated by simulation using the conditional
+distribution of the design matrix.</p>
+</dd>
+<dt><strong>n_sim: int, default=5000</strong></dt><dd><p>Number of simulations to be performed for x-dependent
+lambda calculation.</p>
+</dd>
+<dt><strong>random_state: int, default=None</strong></dt><dd><p>Random seed used for simulations if <cite>x_dependent</cite> is
+set to <cite>True</cite>.</p>
+</dd>
+<dt><strong>lasso_psi: bool, default=False</strong></dt><dd><p>By default post-lasso is the default method for obtaining
+residuals in the</p>
+</dd>
+<dt><strong>prestd: bool, default=False</strong></dt><dd><p>If True, the data is prestandardized instead of
+on the fly by penalty loadings. Currently only
+supports homoscedastic case.</p>
+</dd>
+<dt><strong>n_corr: int, default=5</strong></dt><dd><p>Number of most correlated variables to be used in the
+for initial calculation of the residuals.</p>
+</dd>
+<dt><strong>c: float, default=1.1</strong></dt><dd><p>Slack parameter used in the lambda calculation. From
+<a class="reference internal" href="#rcafde14c0cd9-3" id="id3">[3]</a> &quot;c needs to be greater than 1 for the regularization
+event to hold asymptotically, but not too high as the
+shrinkage bias is increasing in c.&quot;</p>
+</dd>
+<dt><strong>gamma: float, optional=None</strong></dt><dd><p>Regularization parameter, where the probability of
+selecting the correct model is given by 1-gamma.
+If not specified, the the value is set to:
+0.1 / np.log(n)</p>
+</dd>
+<dt><strong>max_iter: int, default=2</strong></dt><dd><p>Maximum number of iterations to perform in the iterative
+estimation procedure to obtain the Rlasso estimates.</p>
+</dd>
+<dt><strong>conv_tol: float, default=1e-4</strong></dt><dd><p>Tolerance for the convergence of the iterative estimation
+procedure.</p>
+</dd>
+<dt><strong>solver: str, default=&quot;cd&quot;</strong></dt><dd><p>Solver to be used for the iterative estimation procedure.
+Alternatives are:
+&quot;cd&quot; - coordinate descent method.
+&quot;cvxpy&quot; - cvxpy solver.</p>
+</dd>
+<dt><strong>cd_max_iter: int, default=10000</strong></dt><dd><p>Maximum number of iterations to be perform by the coordinate
+descent algorithm before stopping.</p>
+</dd>
+<dt><strong>cd_tol: float, default=1e-10</strong></dt><dd><p>Convergence tolerance for the coordinate descent algorithm.</p>
+</dd>
+<dt><strong>cvxpy_opts: dict, default=None</strong></dt><dd><p>Additional options to be passed to the cvxpy solver. See cvxpy
+documentation for more details:
+<a class="reference external" href="https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options">https://www.cvxpy.org/tutorial/advanced/index.html#solve-method-options</a></p>
+</dd>
+<dt><strong>zero_tol: float, default=1e-4</strong></dt><dd><p>Tolerance for the rounding of estimated coefficients to zero.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Attributes</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>results_: dict[&quot;PDS&quot;, &quot;CHS&quot;]</strong></dt><dd><p>Dictionary containing the 2-stage-least-squares estimates.
+Values are <cite>linearmodels.iv.IV2SLS</cite> objects. See:
+<a class="reference external" href="https://bashtage.github.io/linearmodels/iv/iv/linearmodels.iv.model.IV2SLS.html">https://bashtage.github.io/linearmodels/iv/iv/linearmodels.iv.model.IV2SLS.html</a>
+<a class="reference external" href="https://bashtage.github.io/linearmodels/iv/examples/basic-examples.html">https://bashtage.github.io/linearmodels/iv/examples/basic-examples.html</a></p>
+</dd>
+<dt><strong>X_selected_: dict[list[str]]</strong></dt><dd><p>List of selected controls for each stage in the estimation.</p>
+</dd>
+<dt><strong>Z_selected_: list[str]</strong></dt><dd><p>List of selected instruments.</p>
+</dd>
+<dt><strong>valid_vars_: list[str]</strong></dt><dd><p>List of variables for which standard errors and test
+statistics are valid.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p><code class="docutils literal notranslate"><span class="pre">RlassoIV</span></code> is used when one wants to use instruments in order to
+estimate low-dimensional endogenous variables in the setting</p>
+<div class="math notranslate nohighlight">
+\[y_{i}=\alpha d_{i}+x_{i}^{\prime} \beta+\varepsilon_{i}\]</div>
+<div class="math notranslate nohighlight">
+\[d_{i}=x_{i}^{\prime} \gamma+z_{i}^{\prime} \delta+u_{i}\]</div>
+<p>where <span class="math notranslate nohighlight">\(d_{i}\)</span> is endogonous and <a href="#id4"><span class="problematic" id="id5">`</span></a>both instruments $z_i$ and and
+controls $x_i$ are possibily high-dimensional.</p>
+<p class="rubric">References</p>
+<dl class="citation">
+<dt class="label" id="rcafde14c0cd9-1"><span class="brackets"><a class="fn-backref" href="#id2">1</a></span></dt>
+<dd><p>Chernozhukov, V., Hansen, C., &amp; Spindler, M. (2015).
+Post-selection and post-regularization inference in linear models with many controls and instruments.
+American Economic Review, 105(5), 486-90.</p>
+</dd>
+<dt class="label" id="rcafde14c0cd9-2"><span class="brackets"><a class="fn-backref" href="#id1">2</a></span></dt>
+<dd><p>Belloni, A., Chernozhukov, V., &amp; Hansen, C. (2014).
+Inference on treatment effects after selection among high-dimensional controls.
+The Review of Economic Studies, 81(2), 608-650.</p>
+</dd>
+<dt class="label" id="rcafde14c0cd9-3"><span class="brackets"><a class="fn-backref" href="#id3">3</a></span></dt>
+<dd><p>Ahrens, A., Hansen, C. B., &amp; Schaffer, M. (2019).
+PDSLASSO: Stata module for post-selection and
+post-regularization OLS or IV estimation and inference.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">rlassomodels</span> <span class="kn">import</span> <span class="n">RlassoIV</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">d_endog</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Fit the model, use rlasso to select both controls and instruments</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rlasso_iv</span> <span class="o">=</span> <span class="n">RlassoIV</span><span class="p">(</span><span class="n">select_X</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">select_Z</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rlasso_iv</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">D_exog</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">D_endog</span><span class="o">=</span><span class="n">d_endog</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="n">Z</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="rlassomodels.RlassoIV.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">D_exog</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">D_endog</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/rlassomodels/estimators.html#RlassoIV.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#rlassomodels.RlassoIV.fit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>X: array-like, shape (n_samples, n_controls)</strong></dt><dd><p>Control variables. Potentially high-dimensional.</p>
+</dd>
+<dt><strong>y: array-like, shape (n_samples,)</strong></dt><dd><p>Outcome/dependent variable.</p>
+</dd>
+<dt><strong>D_exog: array-like, shape (n_samples, n_exog)</strong></dt><dd><p>Low-dimensionnal exogenous regressors. On which inference
+is performed.</p>
+</dd>
+<dt><strong>D_endog: array-like, shape (n_samples, n_endog)</strong></dt><dd><p>Endogenous regressors. On which inference
+is performed.</p>
+</dd>
+<dt><strong>Z: array-like, shape (n_samples, n_instruments)</strong></dt><dd><p>Instruments. Potentially high-dimensional.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt><strong>self</strong><span class="classifier">object</span></dt><dd><p>Returns the instance itself.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="rlassomodels.RlassoIV.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/rlassomodels/estimators.html#RlassoIV.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#rlassomodels.RlassoIV.summary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Produces a summary of the results.</p>
+</dd></dl>
+
+</dd></dl>
+
+<div class="clearer"></div></section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">RlassoModels</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Install</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../api_reference.html">API Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="rlassomodels.Rlasso.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.Rlasso</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rlassomodels.RlassoLogit.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.RlassoLogit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rlassomodels.RlassoPDS.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.RlassoPDS</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.RlassoIV</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="../api_reference.html">API Documentation</a><ul>
+      <li>Previous: <a href="rlassomodels.RlassoPDS.html" title="previous chapter"><code class="xref py py-mod docutils literal notranslate"><span class="pre">rlassomodels</span></code>.RlassoPDS</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Matias Piqueras.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/generated/rlassomodels.RlassoIV.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
