@@ -1,6 +1,5 @@
 [![Conda Actions Status][actions-conda-badge]][actions-conda-link] 
 [![Pip Actions Status][actions-pip-badge]][actions-pip-link] 
-[![Wheels Action Status][actions-wheels-badge]][actions-wheels-link]
 [![Docs Actions Status][actions-docs-badge]][actions-docs-link]
 [![Python](https://img.shields.io/badge/python-3.6%20%7C%203.8%20%7C%203.10-blue)](https://www.python.org)
 
@@ -17,7 +16,7 @@
 
 
 
-# RlassoModels - Rigorous Lasso for Estimation and Inference in Python
+# RlassoModels - Rigorous Lasso for Estimation and Inference in Python <a href="https://RlassoModels.readthedocs.io/en/latest/"><img src="https://raw.githubusercontent.com/matpiq/RlassoModels/master/docs/logo.svg" align="right" width = "120" /></a>
 
 [RlassoModels]: https://RlassoModels.readthedocs.io/en/latest/
 [lassopack]: https://statalasso.github.io/docs/lassopack/
