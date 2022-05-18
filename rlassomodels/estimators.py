@@ -261,6 +261,9 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             raise NotImplementedError("Cluster robust loadings not implemented")
 
+        if self.nopen_idx_:
+            psi[self.nopen_idx_] = 0.0
+
         return psi
 
     def _lambd_calc(
@@ -418,7 +421,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         else:
             return la.solve(XX * 2 + lambd * np.diag(psi**2), Xy * 2)
 
-    def _fit(self, X, y):
+    def _fit(self, X, y, *, nopen_idx=None):
         """Helper function to fit the model."""
 
         if self.max_iter < 0:
@@ -442,7 +445,12 @@ class Rlasso(BaseEstimator, RegressorMixin):
                 "Data is assumed to be homoscedastic."
             )
 
+        if nopen_idx is not None and not isinstance(nopen_idx, (list, np.ndarray)):
+            raise ValueError("nopen_idx must be a list or numpy array")
+
         X, y = check_X_y(X, y, accept_sparse=False, ensure_min_samples=2)
+
+        self.nopen_idx_ = nopen_idx
 
         p = self.n_features_in_ = X.shape[1]
         n = X.shape[0]
@@ -635,7 +643,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         self.lambd_ = lambd
         self.psi_ = psi
 
-    def fit(self, X, y):
+    def fit(self, X, y, *, nopen_idx=None):
         """
         Fit the model to the data.
 
@@ -655,7 +663,7 @@ class Rlasso(BaseEstimator, RegressorMixin):
         if isinstance(X, pd.DataFrame):
             self.feature_names_ = X.columns
 
-        self._fit(X, y)
+        self._fit(X, y, nopen_idx=nopen_idx)
 
         # sklearn estimator must return self
         return self
