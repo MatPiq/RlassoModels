@@ -1,7 +1,3 @@
-[![Conda Actions Status][actions-conda-badge]][actions-conda-link] 
-[![Pip Actions Status][actions-pip-badge]][actions-pip-link] 
-[![Docs Actions Status][actions-docs-badge]][actions-docs-link]
-[![Python](https://img.shields.io/badge/python-3.6%20%7C%203.8%20%7C%203.10-blue)](https://www.python.org)
 
 
 [actions-badge]:           https://github.com/matpiq/RlassoModels/workflows/Tests/badge.svg
@@ -16,11 +12,21 @@
 
 
 
-# RlassoModels - Rigorous Lasso for Estimation and Inference in Python <a href="https://RlassoModels.readthedocs.io/en/latest/"><img src="https://raw.githubusercontent.com/matpiq/RlassoModels/master/docs/logo.png" align="right" width = "120" /></a>
+<a href="https://RlassoModels.readthedocs.io/en/latest/"><img src="https://raw.githubusercontent.com/matpiq/RlassoModels/master/docs/logo.png" align="left" width = "250" /></a>
+# Rigorous Lasso for High-Dimensional Estimation and Inference in Python
+
+[![Conda Actions Status][actions-conda-badge]][actions-conda-link] 
+[![Pip Actions Status][actions-pip-badge]][actions-pip-link] 
+[![Docs Actions Status][actions-docs-badge]][actions-docs-link]
+[![Python](https://img.shields.io/badge/python-3.6%20%7C%203.8%20%7C%203.10-blue)](https://www.python.org)
+
+
+
 
 [RlassoModels]: https://RlassoModels.readthedocs.io/en/latest/
 [lassopack]: https://statalasso.github.io/docs/lassopack/
 [hdm]: https://CRAN.R-project.org/package=hdm
+
 
 Documentation: https://matpiq.github.io/RlassoModels/
 
